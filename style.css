@@ -225,49 +225,7 @@
             font-weight: 600;
         }
 
-#scontainer {
-    display: flex;
-    height: 100vh;
-}
 
-#sidebar {
-    width: 250px;
-    background: #f4f4f4;
-    padding: 10px;
-    border-right: 1px solid #ccc;
-    overflow-y: auto;
-}
-
-#sidebar h2 {
-    margin-top: 0;
-}
-
-#sidebar ul {
-    list-style: none;
-    padding-left: 15px;
-}
-
-#sidebar li {
-    cursor: pointer;
-    margin: 5px 0;
-}
-
-#sidebar li:hover {
-    text-decoration: underline;
-}
-
-#content {
-    flex: 1;
-    padding: 20px;
-    overflow-y: auto;
-}
-
-pre {
-    background: #eee;
-    padding: 10px;
-    border: 1px solid #ccc;
-    white-space: pre-wrap;
-}
 
         @media (max-width: 768px) {
             .canvas-area {
