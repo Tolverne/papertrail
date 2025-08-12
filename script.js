@@ -407,7 +407,51 @@ processLatexText(text) {
 
         }
 
+
+const username = "tolverne";
+const repo = "papertrai";
+const branch = "main";
+const folderPath = "latex-files";
+
+async function fetchRepoContents(path) {
+    const url = `https://api.github.com/repos/${username}/${repo}/contents/${path}?ref=${branch}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to fetch ${path}`);
+    return res.json();
+}
+
+async function buildFileTree(path, parentElement) {
+    const items = await fetchRepoContents(path);
+
+    for (let item of items) {
+        const li = document.createElement("li");
+        li.textContent = item.name;
+
+        if (item.type === "dir") {
+            const ul = document.createElement("ul");
+            li.appendChild(ul);
+            parentElement.appendChild(li);
+            await buildFileTree(item.path, ul);
+        } else if (item.name.endsWith(".tex")) {
+            li.addEventListener("click", () => loadFile(item.path));
+            parentElement.appendChild(li);
+        }
+    }
+}
+
+async function loadFile(filePath) {
+    const rawUrl = `https://raw.githubusercontent.com/${username}/${repo}/${branch}/${filePath}`;
+    const res = await fetch(rawUrl);
+    const text = await res.text();
+
+    document.getElementById("latexSource").textContent = text;
+    document.getElementById("renderedOutput").innerHTML = `\\(${text}\\)`;
+    MathJax.typesetPromise();
+}
+
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+  const fileTree = document.getElementById("fileTree");
+  buildFileTree(folderPath, fileTree);
   new QuizApp();
 });
