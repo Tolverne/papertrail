@@ -1,21 +1,4 @@
-// MathJax configuration
-window.MathJax = {
-  tex: {
-    inlineMath: [['$', '$'], ['\\(', '\\)']],
-    displayMath: [['$$', '$$'], ['\\[', '\\]']],
-    processEscapes: true,
-    processEnvironments: true,
-    prefilterHooks: [
-      function (data) {
-        // Remove all \vspace{...} commands
-        data.math = data.math.replace(/\\vspace\{[^}]*\}/g, '');
-      }
-    ]
-  },
-  options: {
-    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
-  }
-};
+
 
   class QuizApp {
             constructor() {
