@@ -21,6 +21,17 @@
             backdrop-filter: blur(10px);
         }
 
+       .fixed-container {
+         position: fixed;
+         margin: 0 auto;
+         background: rgba(255, 255, 255, 0.95);
+         border-radius: 20px;
+         padding: 30px;
+         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+         backdrop-filter: blur(10px);
+         z-index: 1000; /* ensure it stays above other content */
+       }
+
         .header {
             text-align: center;
             margin-bottom: 30px;
