@@ -43,11 +43,10 @@ window.MathJax = {
   
 
   <div class="container">
-    <div class="fixed-container">
     <div class="header">
       <h1>Mathematics: Analysis and Approaches</h1>
     </div>
-    </div>
+    
 
     <div class="name-input-container" style="margin-bottom: 30px; text-align: center;">
       <label for="studentName" style="font-size: 1.2em; font-weight: 600; color: #2c3e50;">
@@ -81,6 +80,11 @@ window.MathJax = {
       <progress id="pdfProgress" value="0" max="100" style="width: 80%; height: 20px;"></progress>
     </div>
   </div>
+  
+  <div class="fixed-container">
+  <div id="calculator" style="width: 600px; height: 400px;"></div>
+  </div>
+
 </body>
   <script>
   var elt = document.getElementById('calculator');
