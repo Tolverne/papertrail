@@ -19,6 +19,74 @@
                 document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
             }
 
+          const githubUser = "tolverne";
+          const githubRepo = "papertrail";
+          const githubFolder = "latex-files"; // top folder with tex files
+          
+          document.getElementById("openFileModal").onclick = () => {
+              document.getElementById("fileModal").style.display = "block";
+              loadFileList();
+          };
+          
+          document.getElementById("closeFileModal").onclick = () => {
+          document.getElementById("fileModal").style.display = "none";
+          };
+
+          async function loadFileList(path = githubFolder, containerId = "fileList") {
+              const container = document.getElementById(containerId);
+              container.innerHTML = "Loading...";
+          
+              try {
+                  const res = await fetch(`https://api.github.com/repos/${githubUser}/${githubRepo}/contents/${path}`);
+                  const data = await res.json();
+          
+                  if (!Array.isArray(data)) {
+                      container.innerHTML = "No files found.";
+                      return;
+                  }
+          
+                  const list = document.createElement("ul");
+                  for (const item of data) {
+                      if (item.type === "dir") {
+                          const li = document.createElement("li");
+                          li.textContent = `📂 ${item.name}`;
+                          li.style.cursor = "pointer";
+                          li.onclick = () => {
+                              const subList = document.createElement("div");
+                              li.appendChild(subList);
+                              loadFileList(item.path, subList);
+                          };
+                          list.appendChild(li);
+                      } else if (item.name.endsWith(".tex")) {
+                          const li = document.createElement("li");
+                          li.textContent = item.name;
+                          li.style.cursor = "pointer";
+                          li.onclick = () => loadLatexFile(item.path);
+                          list.appendChild(li);
+                      }
+                  }
+                  container.innerHTML = "";
+                  container.appendChild(list);
+              } catch (err) {
+                  console.error(err);
+                  container.innerHTML = "Error loading files.";
+              }
+          }
+
+            async function loadLatexFile(filePath) {
+                const rawUrl = `https://raw.githubusercontent.com/${githubUser}/${githubRepo}/main/${filePath}`;
+                try {
+                    const res = await fetch(rawUrl);
+                    const content = await res.text();
+                    // Use your existing parser
+                    parseLatexFile(content);
+                    document.getElementById("fileModal").style.display = "none";
+                    document.getElementById('loading').style.display = 'block';
+                } catch (err) {
+                    console.error("Error loading LaTeX file:", err);
+                }
+            }
+
 
 
             handleFileUpload(event) {
