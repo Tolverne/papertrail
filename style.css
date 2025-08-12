@@ -225,6 +225,10 @@
             font-weight: 600;
         }
 
+#scontainer {
+    display: flex;
+    height: 100vh;
+}
 
 #sidebar {
     width: 250px;
