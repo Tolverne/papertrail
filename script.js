@@ -1,6 +1,4 @@
-
-
-  class QuizApp {
+        class QuizApp {
             constructor() {
                 this.questions = [];
                 this.canvases = [];
@@ -18,8 +16,6 @@
                 document.getElementById('fileInput').addEventListener('change', this.handleFileUpload.bind(this));
                 document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
             }
-    
-
 
 
 
@@ -409,10 +405,7 @@ processLatexText(text) {
 
         }
 
-
-
-
-// Initialize the app when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-  new QuizApp();
-});
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new QuizApp();
+        });
