@@ -19,74 +19,7 @@
                 document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
             }
     
-document.getElementById("openRepoModal").addEventListener("click", () => {
-  document.getElementById("repoModal").style.display = "block";
-  loadRepoFileList();
-});
 
-document.getElementById("closeRepoModal").addEventListener("click", () => {
-  document.getElementById("repoModal").style.display = "none";
-});
-
-window.onclick = (event) => {
-  if (event.target === document.getElementById("repoModal")) {
-    document.getElementById("repoModal").style.display = "none";
-  }
-};
-
-// Fetch and list .tex files in repo
-async function loadRepoFileList() {
-  const owner = "tolverne";
-  const repo = "papertrail";
-  const branch = "main";
-
-  async function listFiles(path = "") {
-    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
-    const res = await fetch(url);
-    const data = await res.json();
-
-    let html = "<ul>";
-    for (const item of data) {
-      if (item.type === "dir") {
-        html += `<li><strong>${item.name}</strong>${await listFiles(item.path)}</li>`;
-      } else if (item.name.endsWith(".tex")) {
-        html += `<li><a href="#" data-path="${item.path}">${item.name}</a></li>`;
-      }
-    }
-    html += "</ul>";
-    return html;
-  }
-
-  document.getElementById("repoFileList").innerHTML = await listFiles();
-
-  // Hook clicks
-  document.querySelectorAll("#repoFileList a").forEach(link => {
-    link.addEventListener("click", async (e) => {
-      e.preventDefault();
-      const path = e.target.getAttribute("data-path");
-      const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
-      const res = await fetch(url);
-      const content = await res.text();
-      parseLatexFile(content); // your existing function
-      document.getElementById("repoModal").style.display = "none";
-    });
-  });
-}
-
-
-            async function loadLatexFile(filePath) {
-                const rawUrl = `https://raw.githubusercontent.com/${githubUser}/${githubRepo}/main/${filePath}`;
-                try {
-                    const res = await fetch(rawUrl);
-                    const content = await res.text();
-                    // Use your existing parser
-                    parseLatexFile(content);
-                    document.getElementById("fileModal").style.display = "none";
-                    document.getElementById('loading').style.display = 'block';
-                } catch (err) {
-                    console.error("Error loading LaTeX file:", err);
-                }
-            }
 
 
 
