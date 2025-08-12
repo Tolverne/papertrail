@@ -18,60 +18,61 @@
                 document.getElementById('fileInput').addEventListener('change', this.handleFileUpload.bind(this));
                 document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
             }
+    
+document.getElementById("openRepoModal").addEventListener("click", () => {
+  document.getElementById("repoModal").style.display = "block";
+  loadRepoFileList();
+});
 
-          const githubUser = "tolverne";
-          const githubRepo = "papertrail";
-          const githubFolder = "latex-files"; // top folder with tex files
-          
-          document.getElementById("openFileModal").onclick = () => {
-              document.getElementById("fileModal").style.display = "block";
-              loadFileList();
-          };
-          
-          document.getElementById("closeFileModal").onclick = () => {
-          document.getElementById("fileModal").style.display = "none";
-          };
+document.getElementById("closeRepoModal").addEventListener("click", () => {
+  document.getElementById("repoModal").style.display = "none";
+});
 
-          async function loadFileList(path = githubFolder, containerId = "fileList") {
-              const container = document.getElementById(containerId);
-              container.innerHTML = "Loading...";
-          
-              try {
-                  const res = await fetch(`https://api.github.com/repos/${githubUser}/${githubRepo}/contents/${path}`);
-                  const data = await res.json();
-          
-                  if (!Array.isArray(data)) {
-                      container.innerHTML = "No files found.";
-                      return;
-                  }
-          
-                  const list = document.createElement("ul");
-                  for (const item of data) {
-                      if (item.type === "dir") {
-                          const li = document.createElement("li");
-                          li.textContent = `📂 ${item.name}`;
-                          li.style.cursor = "pointer";
-                          li.onclick = () => {
-                              const subList = document.createElement("div");
-                              li.appendChild(subList);
-                              loadFileList(item.path, subList);
-                          };
-                          list.appendChild(li);
-                      } else if (item.name.endsWith(".tex")) {
-                          const li = document.createElement("li");
-                          li.textContent = item.name;
-                          li.style.cursor = "pointer";
-                          li.onclick = () => loadLatexFile(item.path);
-                          list.appendChild(li);
-                      }
-                  }
-                  container.innerHTML = "";
-                  container.appendChild(list);
-              } catch (err) {
-                  console.error(err);
-                  container.innerHTML = "Error loading files.";
-              }
-          }
+window.onclick = (event) => {
+  if (event.target === document.getElementById("repoModal")) {
+    document.getElementById("repoModal").style.display = "none";
+  }
+};
+
+// Fetch and list .tex files in repo
+async function loadRepoFileList() {
+  const owner = "tolverne";
+  const repo = "papertrail";
+  const branch = "main";
+
+  async function listFiles(path = "") {
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    let html = "<ul>";
+    for (const item of data) {
+      if (item.type === "dir") {
+        html += `<li><strong>${item.name}</strong>${await listFiles(item.path)}</li>`;
+      } else if (item.name.endsWith(".tex")) {
+        html += `<li><a href="#" data-path="${item.path}">${item.name}</a></li>`;
+      }
+    }
+    html += "</ul>";
+    return html;
+  }
+
+  document.getElementById("repoFileList").innerHTML = await listFiles();
+
+  // Hook clicks
+  document.querySelectorAll("#repoFileList a").forEach(link => {
+    link.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const path = e.target.getAttribute("data-path");
+      const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+      const res = await fetch(url);
+      const content = await res.text();
+      parseLatexFile(content); // your existing function
+      document.getElementById("repoModal").style.display = "none";
+    });
+  });
+}
+
 
             async function loadLatexFile(filePath) {
                 const rawUrl = `https://raw.githubusercontent.com/${githubUser}/${githubRepo}/main/${filePath}`;
