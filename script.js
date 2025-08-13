@@ -348,11 +348,14 @@ class QuizApp {
         // Create section container
         const sectionDiv = document.createElement('div');
         sectionDiv.className = 'section-container';
-        sectionDiv.innerHTML = `
-            <div class="section-header">
-                <h2>${currentSection.title}</h2>
-            </div>
-        `;
+        
+        // Only show section header if there are multiple sections
+        if (this.sections.length > 1) {
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'section-header';
+            headerDiv.innerHTML = `<h2>${currentSection.title}</h2>`;
+            sectionDiv.appendChild(headerDiv);
+        }
 
         // Add questions if they exist
         if (currentSection.questions && currentSection.questions.length > 0) {
@@ -411,13 +414,24 @@ class QuizApp {
         }
 
         carousel.appendChild(sectionDiv);
+        
+        // Clear previous canvases array before reinitializing
+        this.canvases = [];
         this.initializeCanvases();
-        this.renderMath();
+        
+        // Add a small delay for MathJax to ensure DOM is ready
+        setTimeout(() => {
+            this.renderMath();
+        }, 100);
     }
 
     processLatexText(text) {
         return text
-            .replace(/\\vspace\{[^}]*\}/g, '')            // Remove all \vspace{...}
+            .replace(/\\begin\{questions\}/g, '')        // Remove \begin{questions}
+            .replace(/\\end\{questions\}/g, '')          // Remove \end{questions}
+            .replace(/\\begin\{parts\}/g, '')            // Remove \begin{parts}
+            .replace(/\\end\{parts\}/g, '')              // Remove \end{parts}
+            .replace(/\\vspace\{[^}]*\}/g, '')           // Remove all \vspace{...}
             .replace(/\\textbf{([^}]*)}/g, '<strong>$1</strong>')
             .replace(/\\textit{([^}]*)}/g, '<em>$1</em>')
             .replace(/\\emph{([^}]*)}/g, '<em>$1</em>');
@@ -430,7 +444,8 @@ class QuizApp {
     }
 
     initializeCanvases() {
-        const canvases = document.querySelectorAll('.drawing-canvas');
+        // Only initialize canvases in the current section
+        const canvases = document.querySelectorAll('#sectionsCarousel .drawing-canvas');
         
         canvases.forEach((canvas) => {
             const ctx = canvas.getContext('2d');
@@ -438,31 +453,41 @@ class QuizApp {
             ctx.lineJoin = 'round';
             ctx.lineWidth = 2;
             
-            this.canvases.push({ canvas, ctx });
+            // Check if this canvas is already initialized
+            const existingCanvas = this.canvases.find(c => c.canvas === canvas);
+            if (!existingCanvas) {
+                this.canvases.push({ canvas, ctx });
             
-            // Drawing event listeners
-            canvas.addEventListener('mousedown', this.startDrawing.bind(this));
-            canvas.addEventListener('mousemove', this.draw.bind(this));
-            canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
-            canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
-            
-            // Touch events for stylus/finger
-            canvas.addEventListener('touchstart', this.handleTouch.bind(this));
-            canvas.addEventListener('touchmove', this.handleTouch.bind(this));
-            canvas.addEventListener('touchend', this.stopDrawing.bind(this));
-            
-            // Pinch to zoom
-            canvas.addEventListener('gesturestart', this.handleGesture.bind(this));
-            canvas.addEventListener('gesturechange', this.handleGesture.bind(this));
-            
-            // Resize handle
-            const resizeHandle = canvas.parentElement.querySelector('.resize-handle');
-            resizeHandle.addEventListener('mousedown', (e) => this.startResize(e, canvas));
+                // Drawing event listeners
+                canvas.addEventListener('mousedown', this.startDrawing.bind(this));
+                canvas.addEventListener('mousemove', this.draw.bind(this));
+                canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
+                canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
+                
+                // Touch events for stylus/finger
+                canvas.addEventListener('touchstart', this.handleTouch.bind(this));
+                canvas.addEventListener('touchmove', this.handleTouch.bind(this));
+                canvas.addEventListener('touchend', this.stopDrawing.bind(this));
+                
+                // Pinch to zoom
+                canvas.addEventListener('gesturestart', this.handleGesture.bind(this));
+                canvas.addEventListener('gesturechange', this.handleGesture.bind(this));
+                
+                // Resize handle
+                const resizeHandle = canvas.parentElement.querySelector('.resize-handle');
+                if (resizeHandle) {
+                    resizeHandle.addEventListener('mousedown', (e) => this.startResize(e, canvas));
+                }
+            }
         });
         
-        // Color picker and eraser event listeners
-        document.querySelectorAll('.color-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        // Color picker and eraser event listeners for current section
+        document.querySelectorAll('#sectionsCarousel .color-btn').forEach(btn => {
+            // Remove existing listeners by cloning the element
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', (e) => {
                 // Remove active class from siblings
                 e.target.parentElement.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
@@ -471,12 +496,17 @@ class QuizApp {
                 this.isErasing = false;
                 
                 // Remove active from eraser
-                e.target.closest('.tools').querySelector('.eraser-btn').classList.remove('active');
+                const eraserBtn = e.target.closest('.tools').querySelector('.eraser-btn');
+                if (eraserBtn) eraserBtn.classList.remove('active');
             });
         });
         
-        document.querySelectorAll('.eraser-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        document.querySelectorAll('#sectionsCarousel .eraser-btn').forEach(btn => {
+            // Remove existing listeners by cloning the element
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', (e) => {
                 this.isErasing = !this.isErasing;
                 e.target.classList.toggle('active');
                 
