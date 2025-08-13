@@ -18,6 +18,43 @@
             }
 
 
+async function getLatexFilesFromRepo() {
+    const apiUrl = 'https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/contents/latex-files';
+    try {
+        const response = await fetch(apiUrl);
+        const files = await response.json();
+        return files.filter(file => file.name.endsWith('.tex'));
+    } catch (error) {
+        console.error('Error fetching file list:', error);
+        return [];
+    }
+}
+
+async function loadLatexFileFromGitHub(file) {
+    try {
+        const response = await fetch(file.download_url);
+        const content = await response.text();
+        this.fileName = file.name;
+        this.parseLatexFile(content);
+    } catch (error) {
+        console.error('Error loading file:', error);
+    }
+}
+
+// Create a dropdown or list to select files
+async function populateFileList() {
+    const files = await getLatexFilesFromRepo();
+    const select = document.getElementById('repoFileSelect');
+    
+    files.forEach(file => {
+        const option = document.createElement('option');
+        option.value = file.name;
+        option.textContent = file.name;
+        select.appendChild(option);
+    });
+}
+
+                
 
             handleFileUpload(event) {
                 const file = event.target.files[0];
