@@ -17,11 +17,120 @@
                 document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
             }
 
+function initializeRepoFileSelector() {
+    const select = document.getElementById('repoFileSelect');
+    const label = document.getElementById('repoFileLabel');
+    
+    // Create custom dropdown container
+    const dropdownContainer = document.createElement('div');
+    dropdownContainer.className = 'custom-dropdown';
+    dropdownContainer.style.cssText = `
+        position: relative;
+        display: inline-block;
+        width: 100%;
+    `;
+    
+    // Create dropdown list
+    const dropdownList = document.createElement('div');
+    dropdownList.className = 'dropdown-list';
+    dropdownList.style.cssText = `
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    `;
+    
+    // Insert dropdown after the label
+    label.parentNode.insertBefore(dropdownContainer, label.nextSibling);
+    dropdownContainer.appendChild(dropdownList);
+    
+    // Handle label click to toggle dropdown
+    label.addEventListener('click', async (e) => {
+        e.preventDefault();
+        
+        if (dropdownList.style.display === 'block') {
+            dropdownList.style.display = 'none';
+            return;
+        }
+        
+        // Show loading state
+        label.textContent = '📚 Loading files...';
+        dropdownList.innerHTML = '<div style="padding: 10px; color: #6c757d;">Loading...</div>';
+        dropdownList.style.display = 'block';
+        
+        // Load files from repository
+        const files = await getLatexFilesFromRepo();
+        
+        // Clear dropdown and populate with files
+        dropdownList.innerHTML = '';
+        
+        if (files.length === 0) {
+            dropdownList.innerHTML = '<div style="padding: 10px; color: #6c757d;">No .tex files found</div>';
+            label.textContent = '📚 Choose Repository LaTeX File';
+            return;
+        }
+        
+        files.forEach(file => {
+            const option = document.createElement('div');
+            option.style.cssText = `
+                padding: 10px 15px;
+                cursor: pointer;
+                border-bottom: 1px solid #eee;
+                transition: background-color 0.2s;
+            `;
+            option.textContent = file.name;
+            
+            option.addEventListener('mouseenter', () => {
+                option.style.backgroundColor = '#f8f9fa';
+            });
+            
+            option.addEventListener('mouseleave', () => {
+                option.style.backgroundColor = 'white';
+            });
+            
+            option.addEventListener('click', () => {
+                label.textContent = `📚 ${file.name}`;
+                dropdownList.style.display = 'none';
+                loadLatexFileFromGitHub(file);
+            });
+            
+            dropdownList.appendChild(option);
+        });
+        
+        // Remove last border
+        const lastOption = dropdownList.lastElementChild;
+        if (lastOption) {
+            lastOption.style.borderBottom = 'none';
+        }
+        
+        label.textContent = '📚 Choose Repository LaTeX File';
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!dropdownContainer.contains(e.target) && !label.contains(e.target)) {
+            dropdownList.style.display = 'none';
+        }
+    });
+}
 
+// Updated GitHub API functions
 async function getLatexFilesFromRepo() {
     const apiUrl = 'https://api.github.com/repos/tolverne/papertrail/contents/latex-files';
     try {
         const response = await fetch(apiUrl);
+        if (!response.ok) {
+            console.error('Failed to fetch files:', response.status);
+            return [];
+        }
         const files = await response.json();
         return files.filter(file => file.name.endsWith('.tex'));
     } catch (error) {
@@ -31,28 +140,23 @@ async function getLatexFilesFromRepo() {
 }
 
 async function loadLatexFileFromGitHub(file) {
+    document.getElementById('loading').style.display = 'block';
+    
     try {
         const response = await fetch(file.download_url);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
         const content = await response.text();
         this.fileName = file.name;
         this.parseLatexFile(content);
     } catch (error) {
         console.error('Error loading file:', error);
+        document.getElementById('loading').style.display = 'none';
+        alert('Failed to load file from repository');
     }
 }
 
-// Create a dropdown or list to select files
-async function populateFileList() {
-    const files = await getLatexFilesFromRepo();
-    const select = document.getElementById('repoFileSelect');
-    
-    files.forEach(file => {
-        const option = document.createElement('option');
-        option.value = file.name;
-        option.textContent = file.name;
-        select.appendChild(option);
-    });
-}
+initializeRepoFileSelector();
 
                 
 
@@ -444,6 +548,5 @@ processLatexText(text) {
 
         // Initialize the app when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
-            populateFileList();
             new QuizApp();
         });
