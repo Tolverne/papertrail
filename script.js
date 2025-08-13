@@ -176,98 +176,181 @@ class QuizApp {
 
         document.getElementById('loading').style.display = 'block';
     }
-
-    parseLatexFile(content) {
+parseLatexFile(content) {
     const sections = [];
+    
+    // Extract questions using regex
+    const questionsMatch = content.match(/\\begin{questions}(.*?)\\end{questions}/s);
+    if (!questionsMatch) {
+        alert('No questions found in the LaTeX file. Please check the format.');
+        document.getElementById('loading').style.display = 'none';
+        return;
+    }
 
-    // Match all \section{Title} ... until the next \section or end
-    const sectionRegex = /\\section\{([^}]*)\}([\s\S]*?)(?=\\section\{|$)/g;
-    let sectionMatch;
-    let sectionId = 0;
-
-    while ((sectionMatch = sectionRegex.exec(content)) !== null) {
-        sectionId++;
-        const sectionTitle = sectionMatch[1].trim();
-        const sectionContent = sectionMatch[2];
-
-        const questions = [];
-
-        // Extract questions inside this section
-        const questionsMatch = sectionContent.match(/\\begin{questions}([\s\S]*?)\\end{questions}/);
-        if (questionsMatch) {
-            const questionsContent = questionsMatch[1];
-            const questionBlocks = questionsContent.split(/\\question\s+/).filter(q => q.trim());
-
-            questionBlocks.forEach((block, qIndex) => {
-                const question = { id: qIndex + 1, text: '', parts: [] };
-                const partsMatch = block.match(/([\s\S]*?)\\begin{parts}([\s\S]*?)\\end{parts}/);
-
+    const questionsContent = questionsMatch[1];
+    
+    // Split by \section but keep the section text
+    const sectionBlocks = questionsContent.split(/\\section\{([^}]+)\}/).filter(block => block.trim());
+    
+    // Process sections (every pair is title, content)
+    for (let i = 0; i < sectionBlocks.length; i += 2) {
+        if (i + 1 < sectionBlocks.length) {
+            const sectionTitle = sectionBlocks[i];
+            const sectionContent = sectionBlocks[i + 1];
+            
+            const section = {
+                id: Math.floor(i / 2) + 1,
+                title: sectionTitle,
+                questions: []
+            };
+            
+            // Split by \question but keep the \question text
+            const questionBlocks = sectionContent.split(/\\question\s+/).filter(block => block.trim());
+            
+            questionBlocks.forEach((block, index) => {
+                const question = { id: index + 1, text: '', parts: [] };
+                
+                // Check if this question has parts
+                const partsMatch = block.match(/(.*?)\\begin{parts}(.*?)\\end{parts}/s);
+                
                 if (partsMatch) {
                     question.text = partsMatch[1].trim();
                     const partsContent = partsMatch[2];
-                    const parts = partsContent.split(/\\part\s+/).filter(p => p.trim());
-                    parts.forEach((partText, pIndex) => {
+                    
+                    // Extract parts
+                    const parts = partsContent.split(/\\part\s+/).filter(part => part.trim());
+                    parts.forEach((partText, partIndex) => {
                         question.parts.push({
-                            id: pIndex + 1,
+                            id: partIndex + 1,
                             text: partText.trim()
                         });
                     });
                 } else {
+                    // Question without parts
                     question.text = block.trim();
-                    question.parts.push({ id: 1, text: '' });
+                    question.parts.push({
+                        id: 1,
+                        text: ''
+                    });
                 }
-                questions.push(question);
+                
+                section.questions.push(question);
             });
+            
+            sections.push(section);
         }
-
-        sections.push({ id: sectionId, title: sectionTitle, questions });
+    }
+    
+    // Handle case where there are no sections (fallback to original behavior)
+    if (sections.length === 0) {
+        const questionBlocks = questionsContent.split(/\\question\s+/).filter(block => block.trim());
+        const defaultSection = {
+            id: 1,
+            title: 'Questions',
+            questions: []
+        };
+        
+        questionBlocks.forEach((block, index) => {
+            const question = { id: index + 1, text: '', parts: [] };
+            
+            const partsMatch = block.match(/(.*?)\\begin{parts}(.*?)\\end{parts}/s);
+            
+            if (partsMatch) {
+                question.text = partsMatch[1].trim();
+                const partsContent = partsMatch[2];
+                
+                const parts = partsContent.split(/\\part\s+/).filter(part => part.trim());
+                parts.forEach((partText, partIndex) => {
+                    question.parts.push({
+                        id: partIndex + 1,
+                        text: partText.trim()
+                    });
+                });
+            } else {
+                question.text = block.trim();
+                question.parts.push({
+                    id: 1,
+                    text: ''
+                });
+            }
+            
+            defaultSection.questions.push(question);
+        });
+        
+        sections.push(defaultSection);
     }
 
     this.sections = sections;
-    this.renderSectionsCarousel();
+    this.currentSectionIndex = 0;
+    this.renderSections();
     document.getElementById('loading').style.display = 'none';
 }
 
-renderSectionsCarousel() {
+renderSections() {
     const container = document.getElementById('questionsContainer');
     container.innerHTML = '';
 
-    const carouselWrapper = document.createElement('div');
-    carouselWrapper.className = 'carousel-wrapper';
-
-    const track = document.createElement('div');
-    track.className = 'carousel-track';
-    carouselWrapper.appendChild(track);
-
-    this.sections.forEach((section) => {
+    // Create carousel container
+    const carouselContainer = document.createElement('div');
+    carouselContainer.className = 'carousel-container';
+    
+    // Create navigation
+    const navigation = document.createElement('div');
+    navigation.className = 'carousel-navigation';
+    navigation.innerHTML = `
+        <button class="carousel-btn prev-btn" ${this.currentSectionIndex === 0 ? 'disabled' : ''}>
+            &#8249; Previous
+        </button>
+        <span class="carousel-info">
+            Section ${this.currentSectionIndex + 1} of ${this.sections.length}: ${this.sections[this.currentSectionIndex].title}
+        </span>
+        <button class="carousel-btn next-btn" ${this.currentSectionIndex === this.sections.length - 1 ? 'disabled' : ''}>
+            Next &#8250;
+        </button>
+    `;
+    
+    // Create sections wrapper
+    const sectionsWrapper = document.createElement('div');
+    sectionsWrapper.className = 'sections-wrapper';
+    sectionsWrapper.style.transform = `translateX(-${this.currentSectionIndex * 100}%)`;
+    
+    // Render all sections
+    this.sections.forEach((section, sectionIndex) => {
         const sectionDiv = document.createElement('div');
-        sectionDiv.className = 'carousel-slide';
-
-        // Section title
-        sectionDiv.innerHTML = `<h2>${section.title}</h2>`;
-
-        // Render questions in this section
+        sectionDiv.className = 'section-container';
+        sectionDiv.setAttribute('data-section', section.id);
+        
+        const sectionHeader = document.createElement('div');
+        sectionHeader.className = 'section-header';
+        sectionHeader.innerHTML = `<h2>${section.title}</h2>`;
+        sectionDiv.appendChild(sectionHeader);
+        
         section.questions.forEach((question) => {
             const questionDiv = document.createElement('div');
             questionDiv.className = 'question-container';
+            questionDiv.setAttribute('data-section', section.id);
+            questionDiv.setAttribute('data-question', question.id);
             questionDiv.innerHTML = `
                 <div class="question-text">
                     <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
                 </div>
             `;
 
-            // Render parts
             question.parts.forEach((part) => {
                 const partDiv = document.createElement('div');
                 partDiv.className = 'part-container';
-                partDiv.innerHTML = `
+                partDiv.setAttribute('data-section', section.id);
+                partDiv.setAttribute('data-question', question.id);
+                partDiv.setAttribute('data-part', part.id);
+                
+                const partContent = `
                     <div class="part-text">
                         ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
                     </div>
                     <div class="canvas-area">
                         <div class="canvas-container">
                             <canvas class="drawing-canvas" width="400" height="300" 
-                                data-question="${question.id}" data-part="${part.id}"></canvas>
+                                    data-section="${section.id}" data-question="${question.id}" data-part="${part.id}"></canvas>
                             <div class="resize-handle"></div>
                         </div>
                         <div class="tools">
@@ -280,52 +363,76 @@ renderSectionsCarousel() {
                         </div>
                     </div>
                 `;
+                
+                partDiv.innerHTML = partContent;
                 questionDiv.appendChild(partDiv);
             });
 
             sectionDiv.appendChild(questionDiv);
         });
-
-        track.appendChild(sectionDiv);
+        
+        sectionsWrapper.appendChild(sectionDiv);
     });
 
-    // Carousel controls
-    const prevBtn = document.createElement('button');
-    prevBtn.className = 'carousel-btn prev';
-    prevBtn.textContent = '⬅';
-    const nextBtn = document.createElement('button');
-    nextBtn.className = 'carousel-btn next';
-    nextBtn.textContent = '➡';
+    carouselContainer.appendChild(navigation);
+    carouselContainer.appendChild(sectionsWrapper);
+    container.appendChild(carouselContainer);
 
-    carouselWrapper.appendChild(prevBtn);
-    carouselWrapper.appendChild(nextBtn);
-
-    container.appendChild(carouselWrapper);
-
-    // Carousel functionality
-    let currentSlide = 0;
-    const slides = track.children;
-
-    function updateSlide() {
-        track.style.transform = `translateX(-${currentSlide * 100}%)`;
-    }
-
-    prevBtn.addEventListener('click', () => {
-        currentSlide = (currentSlide - 1 + slides.length) % slides.length;
-        updateSlide();
-    });
-
-    nextBtn.addEventListener('click', () => {
-        currentSlide = (currentSlide + 1) % slides.length;
-        updateSlide();
-    });
-
-    // Initialize
-    updateSlide();
-
+    // Add event listeners for navigation
+    this.setupCarouselNavigation();
     this.initializeCanvases();
     this.renderMath();
     document.getElementById('generatePdf').style.display = 'block';
+}
+
+setupCarouselNavigation() {
+    const prevBtn = document.querySelector('.prev-btn');
+    const nextBtn = document.querySelector('.next-btn');
+    
+    prevBtn.addEventListener('click', () => {
+        if (this.currentSectionIndex > 0) {
+            this.currentSectionIndex--;
+            this.updateCarousel();
+        }
+    });
+    
+    nextBtn.addEventListener('click', () => {
+        if (this.currentSectionIndex < this.sections.length - 1) {
+            this.currentSectionIndex++;
+            this.updateCarousel();
+        }
+    });
+    
+    // Optional: Add keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft' && this.currentSectionIndex > 0) {
+            this.currentSectionIndex--;
+            this.updateCarousel();
+        } else if (e.key === 'ArrowRight' && this.currentSectionIndex < this.sections.length - 1) {
+            this.currentSectionIndex++;
+            this.updateCarousel();
+        }
+    });
+}
+
+updateCarousel() {
+    const sectionsWrapper = document.querySelector('.sections-wrapper');
+    const carouselInfo = document.querySelector('.carousel-info');
+    const prevBtn = document.querySelector('.prev-btn');
+    const nextBtn = document.querySelector('.next-btn');
+    
+    // Update transform
+    sectionsWrapper.style.transform = `translateX(-${this.currentSectionIndex * 100}%)`;
+    
+    // Update navigation info
+    carouselInfo.textContent = `Section ${this.currentSectionIndex + 1} of ${this.sections.length}: ${this.sections[this.currentSectionIndex].title}`;
+    
+    // Update button states
+    prevBtn.disabled = this.currentSectionIndex === 0;
+    nextBtn.disabled = this.currentSectionIndex === this.sections.length - 1;
+    
+    // Re-render math for the current section
+    this.renderMath();
 }
 
 
