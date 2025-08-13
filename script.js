@@ -444,5 +444,6 @@ processLatexText(text) {
 
         // Initialize the app when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
+            populateFileList();
             new QuizApp();
         });
