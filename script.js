@@ -178,83 +178,96 @@ class QuizApp {
     }
 
     parseLatexFile(content) {
+    const sections = [];
+
+    // Match all \section{Title} ... until the next \section or end
+    const sectionRegex = /\\section\{([^}]*)\}([\s\S]*?)(?=\\section\{|$)/g;
+    let sectionMatch;
+    let sectionId = 0;
+
+    while ((sectionMatch = sectionRegex.exec(content)) !== null) {
+        sectionId++;
+        const sectionTitle = sectionMatch[1].trim();
+        const sectionContent = sectionMatch[2];
+
         const questions = [];
-        
-        // Extract questions using regex
-        const questionsMatch = content.match(/\\begin{questions}(.*?)\\end{questions}/s);
-        if (!questionsMatch) {
-            alert('No questions found in the LaTeX file. Please check the format.');
-            document.getElementById('loading').style.display = 'none';
-            return;
+
+        // Extract questions inside this section
+        const questionsMatch = sectionContent.match(/\\begin{questions}([\s\S]*?)\\end{questions}/);
+        if (questionsMatch) {
+            const questionsContent = questionsMatch[1];
+            const questionBlocks = questionsContent.split(/\\question\s+/).filter(q => q.trim());
+
+            questionBlocks.forEach((block, qIndex) => {
+                const question = { id: qIndex + 1, text: '', parts: [] };
+                const partsMatch = block.match(/([\s\S]*?)\\begin{parts}([\s\S]*?)\\end{parts}/);
+
+                if (partsMatch) {
+                    question.text = partsMatch[1].trim();
+                    const partsContent = partsMatch[2];
+                    const parts = partsContent.split(/\\part\s+/).filter(p => p.trim());
+                    parts.forEach((partText, pIndex) => {
+                        question.parts.push({
+                            id: pIndex + 1,
+                            text: partText.trim()
+                        });
+                    });
+                } else {
+                    question.text = block.trim();
+                    question.parts.push({ id: 1, text: '' });
+                }
+                questions.push(question);
+            });
         }
 
-        const questionsContent = questionsMatch[1];
-        
-        // Split by \question but keep the \question text
-        const questionBlocks = questionsContent.split(/\\question\s+/).filter(block => block.trim());
-        
-        questionBlocks.forEach((block, index) => {
-            const question = { id: index + 1, text: '', parts: [] };
-            
-            // Check if this question has parts
-            const partsMatch = block.match(/(.*?)\\begin{parts}(.*?)\\end{parts}/s);
-            
-            if (partsMatch) {
-                question.text = partsMatch[1].trim();
-                const partsContent = partsMatch[2];
-                
-                // Extract parts
-                const parts = partsContent.split(/\\part\s+/).filter(part => part.trim());
-                parts.forEach((partText, partIndex) => {
-                    question.parts.push({
-                        id: partIndex + 1,
-                        text: partText.trim()
-                    });
-                });
-            } else {
-                // Question without parts
-                question.text = block.trim();
-                question.parts.push({
-                    id: 1,
-                    text: ''
-                });
-            }
-            
-            questions.push(question);
-        });
-
-        this.questions = questions;
-        this.renderQuestions();
-        document.getElementById('loading').style.display = 'none';
+        sections.push({ id: sectionId, title: sectionTitle, questions });
     }
 
-    renderQuestions() {
-        const container = document.getElementById('questionsContainer');
-        container.innerHTML = '';
+    this.sections = sections;
+    this.renderSectionsCarousel();
+    document.getElementById('loading').style.display = 'none';
+}
 
-        this.questions.forEach((question) => {
+renderSectionsCarousel() {
+    const container = document.getElementById('questionsContainer');
+    container.innerHTML = '';
+
+    const carouselWrapper = document.createElement('div');
+    carouselWrapper.className = 'carousel-wrapper';
+
+    const track = document.createElement('div');
+    track.className = 'carousel-track';
+    carouselWrapper.appendChild(track);
+
+    this.sections.forEach((section) => {
+        const sectionDiv = document.createElement('div');
+        sectionDiv.className = 'carousel-slide';
+
+        // Section title
+        sectionDiv.innerHTML = `<h2>${section.title}</h2>`;
+
+        // Render questions in this section
+        section.questions.forEach((question) => {
             const questionDiv = document.createElement('div');
             questionDiv.className = 'question-container';
-            questionDiv.setAttribute('data-question', question.id);
             questionDiv.innerHTML = `
                 <div class="question-text">
                     <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
                 </div>
             `;
 
+            // Render parts
             question.parts.forEach((part) => {
                 const partDiv = document.createElement('div');
                 partDiv.className = 'part-container';
-                partDiv.setAttribute('data-question', question.id);
-                partDiv.setAttribute('data-part', part.id);
-                
-                const partContent = `
+                partDiv.innerHTML = `
                     <div class="part-text">
                         ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
                     </div>
                     <div class="canvas-area">
                         <div class="canvas-container">
-                            <canvas class="drawing-canvas" width="400" height="300" data-question="${question.id}" data-part="${part.id}"></canvas>
+                            <canvas class="drawing-canvas" width="400" height="300" 
+                                data-question="${question.id}" data-part="${part.id}"></canvas>
                             <div class="resize-handle"></div>
                         </div>
                         <div class="tools">
@@ -267,18 +280,54 @@ class QuizApp {
                         </div>
                     </div>
                 `;
-                
-                partDiv.innerHTML = partContent;
                 questionDiv.appendChild(partDiv);
             });
 
-            container.appendChild(questionDiv);
+            sectionDiv.appendChild(questionDiv);
         });
 
-        this.initializeCanvases();
-        this.renderMath();
-        document.getElementById('generatePdf').style.display = 'block';
+        track.appendChild(sectionDiv);
+    });
+
+    // Carousel controls
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'carousel-btn prev';
+    prevBtn.textContent = '⬅';
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'carousel-btn next';
+    nextBtn.textContent = '➡';
+
+    carouselWrapper.appendChild(prevBtn);
+    carouselWrapper.appendChild(nextBtn);
+
+    container.appendChild(carouselWrapper);
+
+    // Carousel functionality
+    let currentSlide = 0;
+    const slides = track.children;
+
+    function updateSlide() {
+        track.style.transform = `translateX(-${currentSlide * 100}%)`;
     }
+
+    prevBtn.addEventListener('click', () => {
+        currentSlide = (currentSlide - 1 + slides.length) % slides.length;
+        updateSlide();
+    });
+
+    nextBtn.addEventListener('click', () => {
+        currentSlide = (currentSlide + 1) % slides.length;
+        updateSlide();
+    });
+
+    // Initialize
+    updateSlide();
+
+    this.initializeCanvases();
+    this.renderMath();
+    document.getElementById('generatePdf').style.display = 'block';
+}
+
 
     processLatexText(text) {
         return text
