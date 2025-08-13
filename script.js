@@ -1,6 +1,6 @@
 class QuizApp {
     constructor() {
-        this.sections = []; // Changed from questions to sections
+        this.questions = [];
         this.canvases = [];
         this.currentColor = '#000000';
         this.isErasing = false;
@@ -9,7 +9,6 @@ class QuizApp {
         this.lastY = 0;
         this.studentName = '';
         this.fileName = '';
-        this.currentSectionIndex = 0; // Track current section
         this.init();
     }
 
@@ -17,64 +16,6 @@ class QuizApp {
         document.getElementById('fileInput').addEventListener('change', this.handleFileUpload.bind(this));
         document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
         this.initializeRepoFileSelector();
-        this.initializeCarousel();
-    }
-
-    initializeCarousel() {
-        // Create carousel navigation buttons
-        const container = document.getElementById('questionsContainer');
-        if (!container) return;
-
-        // Create carousel wrapper and navigation
-        const carouselWrapper = document.createElement('div');
-        carouselWrapper.className = 'carousel-wrapper';
-        carouselWrapper.innerHTML = `
-            <div class="carousel-header" id="carouselHeader" style="display: none;">
-                <button id="prevSection" class="carousel-btn" disabled>← Previous Section</button>
-                <div class="section-indicator">
-                    <span id="currentSection">1</span> of <span id="totalSections">1</span>
-                </div>
-                <button id="nextSection" class="carousel-btn" disabled>Next Section →</button>
-            </div>
-            <div id="sectionsCarousel" class="sections-carousel"></div>
-        `;
-        
-        container.parentNode.insertBefore(carouselWrapper, container);
-        container.style.display = 'none'; // Hide original container
-
-        // Add event listeners for navigation
-        document.getElementById('prevSection').addEventListener('click', () => this.navigateSection(-1));
-        document.getElementById('nextSection').addEventListener('click', () => this.navigateSection(1));
-    }
-
-    navigateSection(direction) {
-        const newIndex = this.currentSectionIndex + direction;
-        if (newIndex >= 0 && newIndex < this.sections.length) {
-            this.currentSectionIndex = newIndex;
-            this.renderCurrentSection();
-            this.updateCarouselNavigation();
-        }
-    }
-
-    updateCarouselNavigation() {
-        const carouselHeader = document.getElementById('carouselHeader');
-        const prevBtn = document.getElementById('prevSection');
-        const nextBtn = document.getElementById('nextSection');
-        const currentSpan = document.getElementById('currentSection');
-        const totalSpan = document.getElementById('totalSections');
-
-        // Show/hide carousel header based on number of sections
-        if (this.sections.length > 1) {
-            carouselHeader.style.display = 'flex';
-            if (prevBtn && nextBtn && currentSpan && totalSpan) {
-                prevBtn.disabled = this.currentSectionIndex === 0;
-                nextBtn.disabled = this.currentSectionIndex === this.sections.length - 1;
-                currentSpan.textContent = this.currentSectionIndex + 1;
-                totalSpan.textContent = this.sections.length;
-            }
-        } else {
-            carouselHeader.style.display = 'none';
-        }
     }
 
     initializeRepoFileSelector() {
@@ -187,6 +128,7 @@ class QuizApp {
         });
     }
 
+    // GitHub API functions - now as class methods
     async getLatexFilesFromRepo() {
         const apiUrl = 'https://api.github.com/repos/tolverne/papertrail/contents/latex-files';
         try {
@@ -236,84 +178,32 @@ class QuizApp {
     }
 
     parseLatexFile(content) {
-        // First, split content by sections
-        const sectionSplits = content.split(/\\section\{([^}]+)\}/);
-        
-        if (sectionSplits.length === 1) {
-            // No sections found, use original parsing method
-            const questions = this.parseQuestionsFromContent(content);
-            if (questions.length > 0) {
-                this.sections = [{
-                    id: 1,
-                    title: 'Questions',
-                    questions: questions
-                }];
-                this.currentSectionIndex = 0;
-                this.renderCurrentSection();
-                this.updateCarouselNavigation();
-            } else {
-                alert('No questions found in the LaTeX file. Please check the format.');
-            }
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('generatePdf').style.display = 'block';
-        } else {
-            // Process sections
-            const sections = [];
-            for (let i = 1; i < sectionSplits.length; i += 2) {
-                const sectionTitle = sectionSplits[i];
-                const sectionContent = sectionSplits[i + 1] || '';
-                
-                const questions = this.parseQuestionsFromContent(sectionContent);
-                if (questions.length > 0 || sectionContent.trim()) {
-                    sections.push({
-                        id: Math.floor(i / 2) + 1,
-                        title: sectionTitle,
-                        questions: questions,
-                        content: sectionContent
-                    });
-                }
-            }
-
-            if (sections.length === 0) {
-                alert('No sections or questions found in the LaTeX file. Please check the format.');
-                document.getElementById('loading').style.display = 'none';
-                return;
-            }
-
-            this.sections = sections;
-            this.currentSectionIndex = 0;
-            this.renderCurrentSection();
-            this.updateCarouselNavigation();
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('generatePdf').style.display = 'block';
-        }
-    }
-
-    parseQuestionsFromContent(content) {
         const questions = [];
         
-        // Extract questions using regex - same as your original code
+        // Extract questions using regex
         const questionsMatch = content.match(/\\begin{questions}(.*?)\\end{questions}/s);
         if (!questionsMatch) {
-            return questions; // Return empty array if no questions block found
+            alert('No questions found in the LaTeX file. Please check the format.');
+            document.getElementById('loading').style.display = 'none';
+            return;
         }
 
         const questionsContent = questionsMatch[1];
         
-        // Split by \question but keep the \question text - same as your original
+        // Split by \question but keep the \question text
         const questionBlocks = questionsContent.split(/\\question\s+/).filter(block => block.trim());
         
         questionBlocks.forEach((block, index) => {
             const question = { id: index + 1, text: '', parts: [] };
             
-            // Check if this question has parts - same as your original
+            // Check if this question has parts
             const partsMatch = block.match(/(.*?)\\begin{parts}(.*?)\\end{parts}/s);
             
             if (partsMatch) {
                 question.text = partsMatch[1].trim();
                 const partsContent = partsMatch[2];
                 
-                // Extract parts - same as your original
+                // Extract parts
                 const parts = partsContent.split(/\\part\s+/).filter(part => part.trim());
                 parts.forEach((partText, partIndex) => {
                     question.parts.push({
@@ -322,7 +212,7 @@ class QuizApp {
                     });
                 });
             } else {
-                // Question without parts - same as your original
+                // Question without parts
                 question.text = block.trim();
                 question.parts.push({
                     id: 1,
@@ -333,105 +223,66 @@ class QuizApp {
             questions.push(question);
         });
 
-        return questions;
+        this.questions = questions;
+        this.renderQuestions();
+        document.getElementById('loading').style.display = 'none';
     }
 
-    renderCurrentSection() {
-        const carousel = document.getElementById('sectionsCarousel');
-        if (!carousel) return;
+    renderQuestions() {
+        const container = document.getElementById('questionsContainer');
+        container.innerHTML = '';
 
-        const currentSection = this.sections[this.currentSectionIndex];
-        if (!currentSection) return;
+        this.questions.forEach((question) => {
+            const questionDiv = document.createElement('div');
+            questionDiv.className = 'question-container';
+            questionDiv.setAttribute('data-question', question.id);
+            questionDiv.innerHTML = `
+                <div class="question-text">
+                    <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
+                </div>
+            `;
 
-        carousel.innerHTML = '';
-
-        // Create section container
-        const sectionDiv = document.createElement('div');
-        sectionDiv.className = 'section-container';
-        
-        // Only show section header if there are multiple sections
-        if (this.sections.length > 1) {
-            const headerDiv = document.createElement('div');
-            headerDiv.className = 'section-header';
-            headerDiv.innerHTML = `<h2>${currentSection.title}</h2>`;
-            sectionDiv.appendChild(headerDiv);
-        }
-
-        // Add questions if they exist
-        if (currentSection.questions && currentSection.questions.length > 0) {
-            currentSection.questions.forEach((question) => {
-                const questionDiv = document.createElement('div');
-                questionDiv.className = 'question-container';
-                questionDiv.setAttribute('data-question', question.id);
-                questionDiv.innerHTML = `
-                    <div class="question-text">
-                        <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
+            question.parts.forEach((part) => {
+                const partDiv = document.createElement('div');
+                partDiv.className = 'part-container';
+                partDiv.setAttribute('data-question', question.id);
+                partDiv.setAttribute('data-part', part.id);
+                
+                const partContent = `
+                    <div class="part-text">
+                        ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
+                    </div>
+                    <div class="canvas-area">
+                        <div class="canvas-container">
+                            <canvas class="drawing-canvas" width="400" height="300" data-question="${question.id}" data-part="${part.id}"></canvas>
+                            <div class="resize-handle"></div>
+                        </div>
+                        <div class="tools">
+                            <div class="color-picker">
+                                <div class="color-btn active" style="background-color: #000000;" data-color="#000000"></div>
+                                <div class="color-btn" style="background-color: #0066cc;" data-color="#0066cc"></div>
+                                <div class="color-btn" style="background-color: #cc0000;" data-color="#cc0000"></div>
+                            </div>
+                            <button class="eraser-btn">🧽 Eraser</button>
+                        </div>
                     </div>
                 `;
-
-                question.parts.forEach((part) => {
-                    const partDiv = document.createElement('div');
-                    partDiv.className = 'part-container';
-                    partDiv.setAttribute('data-question', question.id);
-                    partDiv.setAttribute('data-part', part.id);
-                    partDiv.setAttribute('data-section', currentSection.id);
-                    
-                    const partContent = `
-                        <div class="part-text">
-                            ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
-                        </div>
-                        <div class="canvas-area">
-                            <div class="canvas-container">
-                                <canvas class="drawing-canvas" width="400" height="300" 
-                                        data-question="${question.id}" 
-                                        data-part="${part.id}"
-                                        data-section="${currentSection.id}"></canvas>
-                                <div class="resize-handle"></div>
-                            </div>
-                            <div class="tools">
-                                <div class="color-picker">
-                                    <div class="color-btn active" style="background-color: #000000;" data-color="#000000"></div>
-                                    <div class="color-btn" style="background-color: #0066cc;" data-color="#0066cc"></div>
-                                    <div class="color-btn" style="background-color: #cc0000;" data-color="#cc0000"></div>
-                                </div>
-                                <button class="eraser-btn">🧽 Eraser</button>
-                            </div>
-                        </div>
-                    `;
-                    
-                    partDiv.innerHTML = partContent;
-                    questionDiv.appendChild(partDiv);
-                });
-
-                sectionDiv.appendChild(questionDiv);
+                
+                partDiv.innerHTML = partContent;
+                questionDiv.appendChild(partDiv);
             });
-        } else if (currentSection.content) {
-            // If no questions but has content, display the content
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'section-content';
-            contentDiv.innerHTML = this.processLatexText(currentSection.content);
-            sectionDiv.appendChild(contentDiv);
-        }
 
-        carousel.appendChild(sectionDiv);
-        
-        // Clear previous canvases array before reinitializing
-        this.canvases = [];
+            container.appendChild(questionDiv);
+        });
+
         this.initializeCanvases();
-        
-        // Add a small delay for MathJax to ensure DOM is ready
-        setTimeout(() => {
-            this.renderMath();
-        }, 100);
+        this.renderMath();
+        document.getElementById('generatePdf').style.display = 'block';
     }
 
     processLatexText(text) {
         return text
-            .replace(/\\begin\{questions\}/g, '')        // Remove \begin{questions}
-            .replace(/\\end\{questions\}/g, '')          // Remove \end{questions}
-            .replace(/\\begin\{parts\}/g, '')            // Remove \begin{parts}
-            .replace(/\\end\{parts\}/g, '')              // Remove \end{parts}
-            .replace(/\\vspace\{[^}]*\}/g, '')           // Remove all \vspace{...}
+            .replace(/\\vspace\{[^}]*\}/g, '')            // Remove all \vspace{...}
             .replace(/\\textbf{([^}]*)}/g, '<strong>$1</strong>')
             .replace(/\\textit{([^}]*)}/g, '<em>$1</em>')
             .replace(/\\emph{([^}]*)}/g, '<em>$1</em>');
@@ -444,8 +295,7 @@ class QuizApp {
     }
 
     initializeCanvases() {
-        // Only initialize canvases in the current section
-        const canvases = document.querySelectorAll('#sectionsCarousel .drawing-canvas');
+        const canvases = document.querySelectorAll('.drawing-canvas');
         
         canvases.forEach((canvas) => {
             const ctx = canvas.getContext('2d');
@@ -453,41 +303,31 @@ class QuizApp {
             ctx.lineJoin = 'round';
             ctx.lineWidth = 2;
             
-            // Check if this canvas is already initialized
-            const existingCanvas = this.canvases.find(c => c.canvas === canvas);
-            if (!existingCanvas) {
-                this.canvases.push({ canvas, ctx });
+            this.canvases.push({ canvas, ctx });
             
-                // Drawing event listeners
-                canvas.addEventListener('mousedown', this.startDrawing.bind(this));
-                canvas.addEventListener('mousemove', this.draw.bind(this));
-                canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
-                canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
-                
-                // Touch events for stylus/finger
-                canvas.addEventListener('touchstart', this.handleTouch.bind(this));
-                canvas.addEventListener('touchmove', this.handleTouch.bind(this));
-                canvas.addEventListener('touchend', this.stopDrawing.bind(this));
-                
-                // Pinch to zoom
-                canvas.addEventListener('gesturestart', this.handleGesture.bind(this));
-                canvas.addEventListener('gesturechange', this.handleGesture.bind(this));
-                
-                // Resize handle
-                const resizeHandle = canvas.parentElement.querySelector('.resize-handle');
-                if (resizeHandle) {
-                    resizeHandle.addEventListener('mousedown', (e) => this.startResize(e, canvas));
-                }
-            }
+            // Drawing event listeners
+            canvas.addEventListener('mousedown', this.startDrawing.bind(this));
+            canvas.addEventListener('mousemove', this.draw.bind(this));
+            canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
+            canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
+            
+            // Touch events for stylus/finger
+            canvas.addEventListener('touchstart', this.handleTouch.bind(this));
+            canvas.addEventListener('touchmove', this.handleTouch.bind(this));
+            canvas.addEventListener('touchend', this.stopDrawing.bind(this));
+            
+            // Pinch to zoom
+            canvas.addEventListener('gesturestart', this.handleGesture.bind(this));
+            canvas.addEventListener('gesturechange', this.handleGesture.bind(this));
+            
+            // Resize handle
+            const resizeHandle = canvas.parentElement.querySelector('.resize-handle');
+            resizeHandle.addEventListener('mousedown', (e) => this.startResize(e, canvas));
         });
         
-        // Color picker and eraser event listeners for current section
-        document.querySelectorAll('#sectionsCarousel .color-btn').forEach(btn => {
-            // Remove existing listeners by cloning the element
-            const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-            
-            newBtn.addEventListener('click', (e) => {
+        // Color picker and eraser event listeners
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
                 // Remove active class from siblings
                 e.target.parentElement.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
@@ -496,17 +336,12 @@ class QuizApp {
                 this.isErasing = false;
                 
                 // Remove active from eraser
-                const eraserBtn = e.target.closest('.tools').querySelector('.eraser-btn');
-                if (eraserBtn) eraserBtn.classList.remove('active');
+                e.target.closest('.tools').querySelector('.eraser-btn').classList.remove('active');
             });
         });
         
-        document.querySelectorAll('#sectionsCarousel .eraser-btn').forEach(btn => {
-            // Remove existing listeners by cloning the element
-            const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-            
-            newBtn.addEventListener('click', (e) => {
+        document.querySelectorAll('.eraser-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
                 this.isErasing = !this.isErasing;
                 e.target.classList.toggle('active');
                 
@@ -626,116 +461,78 @@ class QuizApp {
             const pdf = new jsPDF('p', 'mm', 'a4');
             let isFirstPage = true;
 
-            // Calculate total parts across all sections
-            const totalParts = this.sections.reduce((acc, section) => {
-                return acc + section.questions.reduce((qacc, q) => qacc + q.parts.length, 0);
-            }, 0);
+            const totalParts = this.questions.reduce((acc, q) => acc + q.parts.length, 0);
             let processedParts = 0;
 
-            for (const section of this.sections) {
-                // Add section title page
-                if (!isFirstPage) pdf.addPage();
-                isFirstPage = false;
-                
-                pdf.setFontSize(18);
-                pdf.setFont(undefined, 'bold');
-                pdf.text(section.title, 15, 30);
+            for (const question of this.questions) {
+                for (const part of question.parts) {
+                    if (!isFirstPage) pdf.addPage();
+                    isFirstPage = false;
 
-                for (const question of section.questions) {
-                    for (const part of question.parts) {
-                        pdf.addPage();
+                    let yPos = 20;
 
-                        let yPos = 20;
+                    const questionTextElement = document.querySelector(`[data-question="${question.id}"] .question-text`);
+                    const partTextElement = document.querySelector(`[data-question="${question.id}"][data-part="${part.id}"] .part-text`);
 
-                        // Add section title
-                        pdf.setFontSize(14);
-                        pdf.setFont(undefined, 'bold');
-                        pdf.text(section.title, 15, yPos);
-                        yPos += 10;
+                    try {
+                        if (window.MathJax) await new Promise(resolve => setTimeout(resolve, 100));
 
-                        // Temporarily render the question to capture it
-                        const tempContainer = document.createElement('div');
-                        tempContainer.style.position = 'absolute';
-                        tempContainer.style.left = '-9999px';
-                        tempContainer.innerHTML = `
-                            <div class="question-text">
-                                <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
-                            </div>
-                        `;
-                        document.body.appendChild(tempContainer);
-
-                        try {
-                            if (window.MathJax) await new Promise(resolve => setTimeout(resolve, 100));
-
-                            const questionCanvas = await html2canvas(tempContainer, { scale: 2, backgroundColor: '#ffffff' });
+                        if (questionTextElement) {
+                            const questionCanvas = await html2canvas(questionTextElement, { scale: 2, backgroundColor: '#ffffff' });
                             const questionImgData = questionCanvas.toDataURL('image/png');
                             const questionImgWidth = Math.min(170, questionCanvas.width * 0.25);
                             const questionImgHeight = questionCanvas.height * (questionImgWidth / questionCanvas.width);
                             pdf.addImage(questionImgData, 'PNG', 15, yPos, questionImgWidth, questionImgHeight);
                             yPos += questionImgHeight + 8;
-
-                            if (part.text) {
-                                const partContainer = document.createElement('div');
-                                partContainer.style.position = 'absolute';
-                                partContainer.style.left = '-9999px';
-                                partContainer.innerHTML = `
-                                    <div class="part-text">
-                                        <strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}
-                                    </div>
-                                `;
-                                document.body.appendChild(partContainer);
-
-                                const partCanvas = await html2canvas(partContainer, { scale: 2, backgroundColor: '#ffffff' });
-                                const partImgData = partCanvas.toDataURL('image/png');
-                                const partImgWidth = Math.min(170, partCanvas.width * 0.25);
-                                const partImgHeight = partCanvas.height * (partImgWidth / partCanvas.width);
-                                pdf.addImage(partImgData, 'PNG', 15, yPos, partImgWidth, partImgHeight);
-                                yPos += partImgHeight + 15;
-
-                                document.body.removeChild(partContainer);
-                            }
-
-                        } catch (error) {
-                            console.warn('Fallback text rendering:', error);
-                            const questionText = `Question ${question.id}: ${question.text}`;
-                            const partText = part.text ? `Part ${part.id}: ${part.text}` : '';
-                            
-                            pdf.setFontSize(12);
-                            pdf.setFont(undefined, 'bold');
-                            const questionLines = pdf.splitTextToSize(questionText, 170);
-                            pdf.text(questionLines, 15, yPos);
-                            yPos += questionLines.length * 6 + 5;
-
-                            if (partText) {
-                                pdf.setFont(undefined, 'normal');
-                                const partLines = pdf.splitTextToSize(partText, 170);
-                                pdf.text(partLines, 15, yPos);
-                                yPos += partLines.length * 6 + 15;
-                            }
                         }
 
-                        document.body.removeChild(tempContainer);
-
-                        // Find canvas for this specific question/part
-                        const canvas = document.querySelector(`canvas[data-section="${section.id}"][data-question="${question.id}"][data-part="${part.id}"]`);
-                        if (canvas) {
-                            const imgData = canvas.toDataURL('image/png');
-                            const imgWidth = Math.min(170, canvas.width * 0.35);
-                            const imgHeight = canvas.height * (imgWidth / canvas.width);
-                            pdf.addImage(imgData, 'PNG', 15, yPos, imgWidth, imgHeight);
+                        if (partTextElement && part.text) {
+                            const partCanvas = await html2canvas(partTextElement, { scale: 2, backgroundColor: '#ffffff' });
+                            const partImgData = partCanvas.toDataURL('image/png');
+                            const partImgWidth = Math.min(170, partCanvas.width * 0.25);
+                            const partImgHeight = partCanvas.height * (partImgWidth / partCanvas.width);
+                            pdf.addImage(partImgData, 'PNG', 15, yPos, partImgWidth, partImgHeight);
+                            yPos += partImgHeight + 15;
+                        } else {
+                            yPos += 15;
                         }
 
-                        // Update progress bar
-                        processedParts++;
-                        progressBar.value = Math.round((processedParts / totalParts) * 100);
+                    } catch (error) {
+                        console.warn('Fallback:', error);
+                        const questionText = `Question ${question.id}: ${question.text}`;
+                        const partText = part.text ? `Part ${part.id}: ${part.text}` : '';
+                        pdf.setFontSize(12);
+                        pdf.setFont(undefined, 'bold');
+                        const questionLines = pdf.splitTextToSize(questionText, 170);
+                        pdf.text(questionLines, 15, yPos);
+                        yPos += questionLines.length * 6 + 5;
+
+                        if (partText) {
+                            pdf.setFont(undefined, 'normal');
+                            const partLines = pdf.splitTextToSize(partText, 170);
+                            pdf.text(partLines, 15, yPos);
+                            yPos += partLines.length * 6 + 15;
+                        }
                     }
+
+                    const canvas = document.querySelector(`canvas[data-question="${question.id}"][data-part="${part.id}"]`);
+                    if (canvas) {
+                        const imgData = canvas.toDataURL('image/png');
+                        const imgWidth = Math.min(170, canvas.width * 0.35);
+                        const imgHeight = canvas.height * (imgWidth / canvas.width);
+                        pdf.addImage(imgData, 'PNG', 15, yPos, imgWidth, imgHeight);
+                    }
+
+                    // Update progress bar
+                    processedParts++;
+                    progressBar.value = Math.round((processedParts / totalParts) * 100);
                 }
             }
 
             // Use stored LaTeX filename (without extension)
-            const baseName = this.fileName.replace(/\.[^/.]+$/, '');
+            const baseName = this.fileName.replace(/\.[^/.]+$/, '');  // removes extension like .tex or .txt
             const namePart = this.studentName ? this.studentName.replace(/\s+/g, '_') : 'student';
-            pdf.save(`${baseName}-${namePart}-answers.pdf`);
+            pdf.save(`${baseName}-${namePart}-answers.pdf`); 
             console.log('PDF generated successfully');
 
         } catch (error) {
