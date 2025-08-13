@@ -19,7 +19,7 @@
 
 
 async function getLatexFilesFromRepo() {
-    const apiUrl = 'https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/contents/latex-files';
+    const apiUrl = 'https://api.github.com/repos/tolverne/papertrail/contents/latex-files';
     try {
         const response = await fetch(apiUrl);
         const files = await response.json();
