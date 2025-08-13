@@ -176,181 +176,149 @@ class QuizApp {
 
         document.getElementById('loading').style.display = 'block';
     }
-parseLatexFile(content) {
-    const sections = [];
-    
-    // Extract questions using regex
-    const questionsMatch = content.match(/\\begin{questions}(.*?)\\end{questions}/s);
-    if (!questionsMatch) {
-        alert('No questions found in the LaTeX file. Please check the format.');
-        document.getElementById('loading').style.display = 'none';
-        return;
-    }
 
-    const questionsContent = questionsMatch[1];
-    
-    // Split by \section but keep the section text
-    const sectionBlocks = questionsContent.split(/\\section\{([^}]+)\}/).filter(block => block.trim());
-    
-    // Process sections (every pair is title, content)
-    for (let i = 0; i < sectionBlocks.length; i += 2) {
-        if (i + 1 < sectionBlocks.length) {
-            const sectionTitle = sectionBlocks[i];
-            const sectionContent = sectionBlocks[i + 1];
-            
-            const section = {
-                id: Math.floor(i / 2) + 1,
-                title: sectionTitle,
-                questions: []
-            };
-            
-            // Split by \question but keep the \question text
-            const questionBlocks = sectionContent.split(/\\question\s+/).filter(block => block.trim());
-            
-            questionBlocks.forEach((block, index) => {
-                const question = { id: index + 1, text: '', parts: [] };
-                
-                // Check if this question has parts
-                const partsMatch = block.match(/(.*?)\\begin{parts}(.*?)\\end{parts}/s);
-                
+parseLatexFile(content) {
+    // Helper regexes
+    const sectionRegex = /\\section\*?\{([^}]*)\}([\s\S]*?)(?=(\\section\*?\{|$))/g; // \section or \section*
+    const questionsEnvRegex = /\\begin{questions}([\s\S]*?)\\end{questions}/g;
+    const splitQuestionRegex = /\\question(?:\[[^\]]*\])?\s+/; // allow \question[points]
+    const splitPartRegex = /\\part(?:\[[^\]]*\])?\s+/;         // allow \part[points]
+
+    const sections = [];
+    let m, sectionCounter = 0;
+
+    // First pass: capture all sections (starred or not)
+    while ((m = sectionRegex.exec(content)) !== null) {
+        sectionCounter++;
+        const title = m[1].trim();
+        const sectionBody = m[2];
+
+        const questions = [];
+        let qEnv;
+        let foundAnyQuestions = false;
+
+        // There can be multiple questions environments in a section
+        while ((qEnv = questionsEnvRegex.exec(sectionBody)) !== null) {
+            foundAnyQuestions = true;
+            const qBody = qEnv[1];
+
+            const blocks = qBody.split(splitQuestionRegex).filter(b => b.trim());
+            blocks.forEach((block, idx) => {
+                const q = { id: idx + 1, text: '', parts: [] };
+
+                // Parts block optional
+                const partsMatch = block.match(/([\s\S]*?)\\begin{parts}([\s\S]*?)\\end{parts}/);
                 if (partsMatch) {
-                    question.text = partsMatch[1].trim();
+                    q.text = partsMatch[1].trim();
+
                     const partsContent = partsMatch[2];
-                    
-                    // Extract parts
-                    const parts = partsContent.split(/\\part\s+/).filter(part => part.trim());
-                    parts.forEach((partText, partIndex) => {
-                        question.parts.push({
-                            id: partIndex + 1,
-                            text: partText.trim()
-                        });
+                    const parts = partsContent.split(splitPartRegex).filter(p => p.trim());
+                    parts.forEach((pt, pIdx) => {
+                        q.parts.push({ id: pIdx + 1, text: pt.trim() });
                     });
                 } else {
-                    // Question without parts
-                    question.text = block.trim();
-                    question.parts.push({
-                        id: 1,
-                        text: ''
-                    });
+                    // No parts environment → one whole-question part area
+                    q.text = block.trim();
+                    q.parts.push({ id: 1, text: '' });
                 }
-                
-                section.questions.push(question);
+
+                questions.push(q);
             });
-            
-            sections.push(section);
         }
+
+        // If no questions env in this section, still create an empty section
+        sections.push({ id: sectionCounter, title, questions });
     }
-    
-    // Handle case where there are no sections (fallback to original behavior)
+
+    // Fallback: no sections at all → parse the whole doc into a single "Section 1"
     if (sections.length === 0) {
-        const questionBlocks = questionsContent.split(/\\question\s+/).filter(block => block.trim());
-        const defaultSection = {
-            id: 1,
-            title: 'Questions',
-            questions: []
+        const questions = [];
+        // Try to find all questions environments in the entire doc
+        const allQEnvs = [...content.matchAll(questionsEnvRegex)];
+        const blocksToParse = [];
+
+        if (allQEnvs.length) {
+            allQEnvs.forEach(env => blocksToParse.push(env[1]));
+        } else {
+            // Last-resort: split across the whole document by \question
+            blocksToParse.push(content);
+        }
+
+        const splitAndPush = (qBody) => {
+            const blocks = qBody.split(splitQuestionRegex).filter(b => b.trim());
+            blocks.forEach((block, idx) => {
+                const q = { id: idx + 1, text: '', parts: [] };
+                const partsMatch = block.match(/([\s\S]*?)\\begin{parts}([\s\S]*?)\\end{parts}/);
+                if (partsMatch) {
+                    q.text = partsMatch[1].trim();
+                    const parts = partsMatch[2].split(splitPartRegex).filter(p => p.trim());
+                    parts.forEach((pt, pIdx) => q.parts.push({ id: pIdx + 1, text: pt.trim() }));
+                } else {
+                    q.text = block.trim();
+                    q.parts.push({ id: 1, text: '' });
+                }
+                questions.push(q);
+            });
         };
-        
-        questionBlocks.forEach((block, index) => {
-            const question = { id: index + 1, text: '', parts: [] };
-            
-            const partsMatch = block.match(/(.*?)\\begin{parts}(.*?)\\end{parts}/s);
-            
-            if (partsMatch) {
-                question.text = partsMatch[1].trim();
-                const partsContent = partsMatch[2];
-                
-                const parts = partsContent.split(/\\part\s+/).filter(part => part.trim());
-                parts.forEach((partText, partIndex) => {
-                    question.parts.push({
-                        id: partIndex + 1,
-                        text: partText.trim()
-                    });
-                });
-            } else {
-                question.text = block.trim();
-                question.parts.push({
-                    id: 1,
-                    text: ''
-                });
-            }
-            
-            defaultSection.questions.push(question);
-        });
-        
-        sections.push(defaultSection);
+
+        blocksToParse.forEach(splitAndPush);
+        sections.push({ id: 1, title: 'Section 1', questions });
     }
 
     this.sections = sections;
-    this.currentSectionIndex = 0;
-    this.renderSections();
+    this.renderSectionsCarousel();
     document.getElementById('loading').style.display = 'none';
 }
 
-renderSections() {
+
+
+renderSectionsCarousel() {
     const container = document.getElementById('questionsContainer');
     container.innerHTML = '';
 
-    // Create carousel container
-    const carouselContainer = document.createElement('div');
-    carouselContainer.className = 'carousel-container';
-    
-    // Create navigation
-    const navigation = document.createElement('div');
-    navigation.className = 'carousel-navigation';
-    navigation.innerHTML = `
-        <button class="carousel-btn prev-btn" ${this.currentSectionIndex === 0 ? 'disabled' : ''}>
-            &#8249; Previous
-        </button>
-        <span class="carousel-info">
-            Section ${this.currentSectionIndex + 1} of ${this.sections.length}: ${this.sections[this.currentSectionIndex].title}
-        </span>
-        <button class="carousel-btn next-btn" ${this.currentSectionIndex === this.sections.length - 1 ? 'disabled' : ''}>
-            Next &#8250;
-        </button>
-    `;
-    
-    // Create sections wrapper
-    const sectionsWrapper = document.createElement('div');
-    sectionsWrapper.className = 'sections-wrapper';
-    sectionsWrapper.style.transform = `translateX(-${this.currentSectionIndex * 100}%)`;
-    
-    // Render all sections
-    this.sections.forEach((section, sectionIndex) => {
-        const sectionDiv = document.createElement('div');
-        sectionDiv.className = 'section-container';
-        sectionDiv.setAttribute('data-section', section.id);
-        
-        const sectionHeader = document.createElement('div');
-        sectionHeader.className = 'section-header';
-        sectionHeader.innerHTML = `<h2>${section.title}</h2>`;
-        sectionDiv.appendChild(sectionHeader);
-        
+    const carouselWrapper = document.createElement('div');
+    carouselWrapper.className = 'carousel-wrapper';
+
+    const track = document.createElement('div');
+    track.className = 'carousel-track';
+    carouselWrapper.appendChild(track);
+
+    // Build slides
+    this.sections.forEach((section) => {
+        const slide = document.createElement('div');
+        slide.className = 'carousel-slide';
+        slide.setAttribute('data-section', section.id);
+
+        const titleEl = document.createElement('h2');
+        titleEl.className = 'section-title';
+        titleEl.textContent = section.title || `Section ${section.id}`;
+        slide.appendChild(titleEl);
+
+        // Render questions/parts exactly like before
         section.questions.forEach((question) => {
-            const questionDiv = document.createElement('div');
-            questionDiv.className = 'question-container';
-            questionDiv.setAttribute('data-section', section.id);
-            questionDiv.setAttribute('data-question', question.id);
-            questionDiv.innerHTML = `
+            const qDiv = document.createElement('div');
+            qDiv.className = 'question-container';
+            qDiv.setAttribute('data-question', question.id);
+            qDiv.innerHTML = `
                 <div class="question-text">
                     <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
                 </div>
             `;
 
             question.parts.forEach((part) => {
-                const partDiv = document.createElement('div');
-                partDiv.className = 'part-container';
-                partDiv.setAttribute('data-section', section.id);
-                partDiv.setAttribute('data-question', question.id);
-                partDiv.setAttribute('data-part', part.id);
-                
-                const partContent = `
+                const pDiv = document.createElement('div');
+                pDiv.className = 'part-container';
+                pDiv.setAttribute('data-question', question.id);
+                pDiv.setAttribute('data-part', part.id);
+
+                pDiv.innerHTML = `
                     <div class="part-text">
                         ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
                     </div>
                     <div class="canvas-area">
                         <div class="canvas-container">
-                            <canvas class="drawing-canvas" width="400" height="300" 
-                                    data-section="${section.id}" data-question="${question.id}" data-part="${part.id}"></canvas>
+                            <canvas class="drawing-canvas" width="400" height="300"
+                                    data-question="${question.id}" data-part="${part.id}"></canvas>
                             <div class="resize-handle"></div>
                         </div>
                         <div class="tools">
@@ -363,78 +331,67 @@ renderSections() {
                         </div>
                     </div>
                 `;
-                
-                partDiv.innerHTML = partContent;
-                questionDiv.appendChild(partDiv);
+                qDiv.appendChild(pDiv);
             });
 
-            sectionDiv.appendChild(questionDiv);
+            slide.appendChild(qDiv);
         });
-        
-        sectionsWrapper.appendChild(sectionDiv);
+
+        track.appendChild(slide);
     });
 
-    carouselContainer.appendChild(navigation);
-    carouselContainer.appendChild(sectionsWrapper);
-    container.appendChild(carouselContainer);
+    // Controls
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'carousel-btn prev';
+    prevBtn.setAttribute('aria-label', 'Previous section');
+    prevBtn.textContent = '⬅';
 
-    // Add event listeners for navigation
-    this.setupCarouselNavigation();
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'carousel-btn next';
+    nextBtn.setAttribute('aria-label', 'Next section');
+    nextBtn.textContent = '➡';
+
+    carouselWrapper.appendChild(prevBtn);
+    carouselWrapper.appendChild(nextBtn);
+    container.appendChild(carouselWrapper);
+
+    // Logic
+    let current = 0;
+    const slides = Array.from(track.children);
+
+    const update = () => {
+        track.style.transform = `translateX(-${current * 100}%)`;
+    };
+
+    prevBtn.addEventListener('click', () => {
+        current = (current - 1 + slides.length) % slides.length;
+        update();
+    });
+    nextBtn.addEventListener('click', () => {
+        current = (current + 1) % slides.length;
+        update();
+    });
+
+    // Keyboard arrows for convenience
+    const keyHandler = (e) => {
+        if (e.key === 'ArrowLeft') { prevBtn.click(); }
+        if (e.key === 'ArrowRight') { nextBtn.click(); }
+    };
+    window.addEventListener('keydown', keyHandler, { passive: true });
+
+    // Init
+    update();
+
+    // Your existing hooks
     this.initializeCanvases();
     this.renderMath();
-    document.getElementById('generatePdf').style.display = 'block';
+    const pdfBtn = document.getElementById('generatePdf');
+    if (pdfBtn) pdfBtn.style.display = 'block';
 }
 
-setupCarouselNavigation() {
-    const prevBtn = document.querySelector('.prev-btn');
-    const nextBtn = document.querySelector('.next-btn');
-    
-    prevBtn.addEventListener('click', () => {
-        if (this.currentSectionIndex > 0) {
-            this.currentSectionIndex--;
-            this.updateCarousel();
-        }
-    });
-    
-    nextBtn.addEventListener('click', () => {
-        if (this.currentSectionIndex < this.sections.length - 1) {
-            this.currentSectionIndex++;
-            this.updateCarousel();
-        }
-    });
-    
-    // Optional: Add keyboard navigation
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowLeft' && this.currentSectionIndex > 0) {
-            this.currentSectionIndex--;
-            this.updateCarousel();
-        } else if (e.key === 'ArrowRight' && this.currentSectionIndex < this.sections.length - 1) {
-            this.currentSectionIndex++;
-            this.updateCarousel();
-        }
-    });
-}
 
-updateCarousel() {
-    const sectionsWrapper = document.querySelector('.sections-wrapper');
-    const carouselInfo = document.querySelector('.carousel-info');
-    const prevBtn = document.querySelector('.prev-btn');
-    const nextBtn = document.querySelector('.next-btn');
-    
-    // Update transform
-    sectionsWrapper.style.transform = `translateX(-${this.currentSectionIndex * 100}%)`;
-    
-    // Update navigation info
-    carouselInfo.textContent = `Section ${this.currentSectionIndex + 1} of ${this.sections.length}: ${this.sections[this.currentSectionIndex].title}`;
-    
-    // Update button states
-    prevBtn.disabled = this.currentSectionIndex === 0;
-    nextBtn.disabled = this.currentSectionIndex === this.sections.length - 1;
-    
-    // Re-render math for the current section
-    this.renderMath();
-}
 
+    
 
     processLatexText(text) {
         return text
