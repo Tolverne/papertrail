@@ -60,14 +60,20 @@ window.MathJax = {
     <div class="file-input-container">
       <input type="file" id="fileInput" class="file-input" accept=".tex,.txt">
       <label for="fileInput" class="file-label">
-        📁 Choose LaTeX File
+        📁 Choose Local LaTeX File
       </label>
       <p style="margin-top: 15px; color: #6c757d;">Select a .tex file containing your quiz questions</p>
     </div>
 
-<select id="repoFileSelect" onchange="loadSelectedRepoFile()">
-    <option value="">Select a LaTeX file from repository...</option>
-</select>
+<div class="file-input-container">
+  <select id="repoFileSelect" class="file-input" style="display: none;">
+    <option value="">Loading files...</option>
+  </select>
+  <label for="repoFileSelect" class="file-label" id="repoFileLabel">
+    📚 Choose Repository LaTeX File
+  </label>
+  <p style="margin-top: 15px; color: #6c757d;">Select a .tex file from the repository</p>
+</div>
     
     <div class="loading" id="loading">
       <p>🔄 Processing LaTeX file...</p>
