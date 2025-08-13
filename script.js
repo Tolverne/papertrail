@@ -285,7 +285,49 @@ class QuizApp {
             .replace(/\\vspace\{[^}]*\}/g, '')            // Remove all \vspace{...}
             .replace(/\\textbf{([^}]*)}/g, '<strong>$1</strong>')
             .replace(/\\textit{([^}]*)}/g, '<em>$1</em>')
-            .replace(/\\emph{([^}]*)}/g, '<em>$1</em>');
+            .replace(/\\emph{([^}]*)}/g, '<em>$1</em>')
+            .replace(/\\href\{([^}]*)\}\{([^}]*)\}/g, (match, url, label) => {
+            // VIDEO FILES
+            if (/\.(mp4|webm|ogg)$/i.test(url)) {
+                return `
+                    <video controls width="640">
+                        <source src="${url}" type="video/${url.split('.').pop()}">
+                        Your browser does not support the video tag.
+                    </video>
+                `;
+            }
+
+            // YOUTUBE LINKS
+            const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
+            if (ytMatch) {
+                const videoId = ytMatch[1];
+                return `
+                    <iframe width="640" height="360"
+                        src="https://www.youtube.com/embed/${videoId}"
+                        frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowfullscreen>
+                    </iframe>
+                `;
+            }
+
+            // VIMEO LINKS
+            const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+            if (vimeoMatch) {
+                const videoId = vimeoMatch[1];
+                return `
+                    <iframe src="https://player.vimeo.com/video/${videoId}"
+                        width="640" height="360"
+                        frameborder="0"
+                        allow="autoplay; fullscreen; picture-in-picture"
+                        allowfullscreen>
+                    </iframe>
+                `;
+            }
+
+            // DEFAULT: Just a link
+            return `<a href="${url}" target="_blank">${label}</a>`;
+        });
     }
 
     renderMath() {
