@@ -65,6 +65,10 @@ window.MathJax = {
       <p style="margin-top: 15px; color: #6c757d;">Select a .tex file containing your quiz questions</p>
     </div>
 
+<select id="repoFileSelect" onchange="loadSelectedRepoFile()">
+    <option value="">Select a LaTeX file from repository...</option>
+</select>
+    
     <div class="loading" id="loading">
       <p>🔄 Processing LaTeX file...</p>
     </div>
