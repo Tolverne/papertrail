@@ -1,8 +1,6 @@
 class QuizApp {
     constructor() {
         this.questions = [];
-        this.sections = [];
-        this.currentSectionIndex = 0;
         this.canvases = [];
         this.currentColor = '#000000';
         this.isErasing = false;
@@ -430,7 +428,7 @@ class QuizApp {
     }
 
     parseLatexFile(content) {
-        const sections = [];
+        const questions = [];
         
         // Extract questions using regex
         const questionsMatch = content.match(/\\begin{questions}(.*?)\\end{questions}/s);
@@ -442,250 +440,94 @@ class QuizApp {
 
         const questionsContent = questionsMatch[1];
         
-        // Split by \section but keep the section text
-        const sectionBlocks = questionsContent.split(/\\section\{([^}]+)\}/).filter(block => block.trim());
+        // Split by \question but keep the \question text
+        const questionBlocks = questionsContent.split(/\\question\s+/).filter(block => block.trim());
         
-        // Process sections (every pair is title, content)
-        for (let i = 0; i < sectionBlocks.length; i += 2) {
-            if (i + 1 < sectionBlocks.length) {
-                const sectionTitle = sectionBlocks[i];
-                const sectionContent = sectionBlocks[i + 1];
-                
-                const section = {
-                    id: Math.floor(i / 2) + 1,
-                    title: sectionTitle,
-                    questions: []
-                };
-                
-                // Split by \question but keep the \question text
-                const questionBlocks = sectionContent.split(/\\question\s+/).filter(block => block.trim());
-                
-                questionBlocks.forEach((block, index) => {
-                    const question = { id: index + 1, text: '', parts: [] };
-                    
-                    // Check if this question has parts
-                    const partsMatch = block.match(/(.*?)\\begin{parts}(.*?)\\end{parts}/s);
-                    
-                    if (partsMatch) {
-                        question.text = partsMatch[1].trim();
-                        const partsContent = partsMatch[2];
-                        
-                        // Extract parts
-                        const parts = partsContent.split(/\\part\s+/).filter(part => part.trim());
-                        parts.forEach((partText, partIndex) => {
-                            question.parts.push({
-                                id: partIndex + 1,
-                                text: partText.trim()
-                            });
-                        });
-                    } else {
-                        // Question without parts
-                        question.text = block.trim();
-                        question.parts.push({
-                            id: 1,
-                            text: ''
-                        });
-                    }
-                    
-                    section.questions.push(question);
-                });
-                
-                sections.push(section);
-            }
-        }
-        
-        // Handle case where there are no sections (fallback to original behavior)
-        if (sections.length === 0) {
-            const questionBlocks = questionsContent.split(/\\question\s+/).filter(block => block.trim());
-            const defaultSection = {
-                id: 1,
-                title: 'Questions',
-                questions: []
-            };
+        questionBlocks.forEach((block, index) => {
+            const question = { id: index + 1, text: '', parts: [] };
             
-            questionBlocks.forEach((block, index) => {
-                const question = { id: index + 1, text: '', parts: [] };
+            // Check if this question has parts
+            const partsMatch = block.match(/(.*?)\\begin{parts}(.*?)\\end{parts}/s);
+            
+            if (partsMatch) {
+                question.text = partsMatch[1].trim();
+                const partsContent = partsMatch[2];
                 
-                const partsMatch = block.match(/(.*?)\\begin{parts}(.*?)\\end{parts}/s);
-                
-                if (partsMatch) {
-                    question.text = partsMatch[1].trim();
-                    const partsContent = partsMatch[2];
-                    
-                    const parts = partsContent.split(/\\part\s+/).filter(part => part.trim());
-                    parts.forEach((partText, partIndex) => {
-                        question.parts.push({
-                            id: partIndex + 1,
-                            text: partText.trim()
-                        });
-                    });
-                } else {
-                    question.text = block.trim();
+                // Extract parts
+                const parts = partsContent.split(/\\part\s+/).filter(part => part.trim());
+                parts.forEach((partText, partIndex) => {
                     question.parts.push({
-                        id: 1,
-                        text: ''
+                        id: partIndex + 1,
+                        text: partText.trim()
                     });
-                }
-                
-                defaultSection.questions.push(question);
-            });
+                });
+            } else {
+                // Question without parts
+                question.text = block.trim();
+                question.parts.push({
+                    id: 1,
+                    text: ''
+                });
+            }
             
-            sections.push(defaultSection);
-        }
+            questions.push(question);
+        });
 
-        this.sections = sections;
-        this.currentSectionIndex = 0;
-        this.renderSections();
+        this.questions = questions;
+        this.renderQuestions();
         document.getElementById('loading').style.display = 'none';
     }
 
-    renderSections() {
+    renderQuestions() {
         const container = document.getElementById('questionsContainer');
         container.innerHTML = '';
 
-        // Create carousel container
-        const carouselContainer = document.createElement('div');
-        carouselContainer.className = 'carousel-container';
-        
-        // Create navigation
-        const navigation = document.createElement('div');
-        navigation.className = 'carousel-navigation';
-        navigation.innerHTML = `
-            <button class="carousel-btn prev-btn" ${this.currentSectionIndex === 0 ? 'disabled' : ''}>
-                &#8249; Previous
-            </button>
-            <span class="carousel-info">
-                Section ${this.currentSectionIndex + 1} of ${this.sections.length}: ${this.sections[this.currentSectionIndex].title}
-            </span>
-            <button class="carousel-btn next-btn" ${this.currentSectionIndex === this.sections.length - 1 ? 'disabled' : ''}>
-                Next &#8250;
-            </button>
-        `;
-        
-        // Create sections wrapper
-        const sectionsWrapper = document.createElement('div');
-        sectionsWrapper.className = 'sections-wrapper';
-        sectionsWrapper.style.transform = `translateX(-${this.currentSectionIndex * 100}%)`;
-        
-        // Render all sections
-        this.sections.forEach((section, sectionIndex) => {
-            const sectionDiv = document.createElement('div');
-            sectionDiv.className = 'section-container';
-            sectionDiv.setAttribute('data-section', section.id);
-            
-            const sectionHeader = document.createElement('div');
-            sectionHeader.className = 'section-header';
-            sectionHeader.innerHTML = `<h2>${section.title}</h2>`;
-            sectionDiv.appendChild(sectionHeader);
-            
-            section.questions.forEach((question) => {
-                const questionDiv = document.createElement('div');
-                questionDiv.className = 'question-container';
-                questionDiv.setAttribute('data-section', section.id);
-                questionDiv.setAttribute('data-question', question.id);
-                questionDiv.innerHTML = `
-                    <div class="question-text">
-                        <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
+        this.questions.forEach((question) => {
+            const questionDiv = document.createElement('div');
+            questionDiv.className = 'question-container';
+            questionDiv.setAttribute('data-question', question.id);
+            questionDiv.innerHTML = `
+                <div class="question-text">
+                    <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
+                </div>
+            `;
+
+            question.parts.forEach((part) => {
+                const partDiv = document.createElement('div');
+                partDiv.className = 'part-container';
+                partDiv.setAttribute('data-question', question.id);
+                partDiv.setAttribute('data-part', part.id);
+                
+                const partContent = `
+                    <div class="part-text">
+                        ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
+                    </div>
+                    <div class="canvas-area">
+                        <div class="canvas-container">
+                            <canvas class="drawing-canvas" width="400" height="300" data-question="${question.id}" data-part="${part.id}"></canvas>
+                            <div class="resize-handle"></div>
+                        </div>
+                        <div class="tools">
+                            <div class="color-picker">
+                                <div class="color-btn active" style="background-color: #000000;" data-color="#000000"></div>
+                                <div class="color-btn" style="background-color: #0066cc;" data-color="#0066cc"></div>
+                                <div class="color-btn" style="background-color: #cc0000;" data-color="#cc0000"></div>
+                            </div>
+                            <button class="eraser-btn">🧽 Eraser</button>
+                        </div>
                     </div>
                 `;
-
-                question.parts.forEach((part) => {
-                    const partDiv = document.createElement('div');
-                    partDiv.className = 'part-container';
-                    partDiv.setAttribute('data-section', section.id);
-                    partDiv.setAttribute('data-question', question.id);
-                    partDiv.setAttribute('data-part', part.id);
-                    
-                    const partContent = `
-                        <div class="part-text">
-                            ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
-                        </div>
-                        <div class="canvas-area">
-                            <div class="canvas-container">
-                                <canvas class="drawing-canvas" width="400" height="300" 
-                                        data-section="${section.id}" data-question="${question.id}" data-part="${part.id}"></canvas>
-                                <div class="resize-handle"></div>
-                            </div>
-                            <div class="tools">
-                                <div class="color-picker">
-                                    <div class="color-btn active" style="background-color: #000000;" data-color="#000000"></div>
-                                    <div class="color-btn" style="background-color: #0066cc;" data-color="#0066cc"></div>
-                                    <div class="color-btn" style="background-color: #cc0000;" data-color="#cc0000"></div>
-                                </div>
-                                <button class="eraser-btn">🧽 Eraser</button>
-                            </div>
-                        </div>
-                    `;
-                    
-                    partDiv.innerHTML = partContent;
-                    questionDiv.appendChild(partDiv);
-                });
-
-                sectionDiv.appendChild(questionDiv);
+                
+                partDiv.innerHTML = partContent;
+                questionDiv.appendChild(partDiv);
             });
-            
-            sectionsWrapper.appendChild(sectionDiv);
+
+            container.appendChild(questionDiv);
         });
 
-        carouselContainer.appendChild(navigation);
-        carouselContainer.appendChild(sectionsWrapper);
-        container.appendChild(carouselContainer);
-
-        // Add event listeners for navigation
-        this.setupCarouselNavigation();
         this.initializeCanvases();
         this.renderMath();
         document.getElementById('generatePdf').style.display = 'block';
-    }
-
-    setupCarouselNavigation() {
-        const prevBtn = document.querySelector('.prev-btn');
-        const nextBtn = document.querySelector('.next-btn');
-        
-        prevBtn.addEventListener('click', () => {
-            if (this.currentSectionIndex > 0) {
-                this.currentSectionIndex--;
-                this.updateCarousel();
-            }
-        });
-        
-        nextBtn.addEventListener('click', () => {
-            if (this.currentSectionIndex < this.sections.length - 1) {
-                this.currentSectionIndex++;
-                this.updateCarousel();
-            }
-        });
-        
-        // Optional: Add keyboard navigation
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft' && this.currentSectionIndex > 0) {
-                this.currentSectionIndex--;
-                this.updateCarousel();
-            } else if (e.key === 'ArrowRight' && this.currentSectionIndex < this.sections.length - 1) {
-                this.currentSectionIndex++;
-                this.updateCarousel();
-            }
-        });
-    }
-
-    updateCarousel() {
-        const sectionsWrapper = document.querySelector('.sections-wrapper');
-        const carouselInfo = document.querySelector('.carousel-info');
-        const prevBtn = document.querySelector('.prev-btn');
-        const nextBtn = document.querySelector('.next-btn');
-        
-        // Update transform
-        sectionsWrapper.style.transform = `translateX(-${this.currentSectionIndex * 100}%)`;
-        
-        // Update navigation info
-        carouselInfo.textContent = `Section ${this.currentSectionIndex + 1} of ${this.sections.length}: ${this.sections[this.currentSectionIndex].title}`;
-        
-        // Update button states
-        prevBtn.disabled = this.currentSectionIndex === 0;
-        nextBtn.disabled = this.currentSectionIndex === this.sections.length - 1;
-        
-        // Re-render math for the current section
-        this.renderMath();
     }
 
     processLatexText(text) {
@@ -911,75 +753,71 @@ class QuizApp {
             const pdf = new jsPDF('p', 'mm', 'a4');
             let isFirstPage = true;
 
-            // Calculate total parts across all sections
-            const totalParts = this.sections.reduce((acc, section) => 
-                acc + section.questions.reduce((qacc, q) => qacc + q.parts.length, 0), 0);
+            const totalParts = this.questions.reduce((acc, q) => acc + q.parts.length, 0);
             let processedParts = 0;
 
-            for (const section of this.sections) {
-                for (const question of section.questions) {
-                    for (const part of question.parts) {
-                        if (!isFirstPage) pdf.addPage();
-                        isFirstPage = false;
+            for (const question of this.questions) {
+                for (const part of question.parts) {
+                    if (!isFirstPage) pdf.addPage();
+                    isFirstPage = false;
 
-                        let yPos = 20;
+                    let yPos = 20;
 
-                        const questionTextElement = document.querySelector(`[data-section="${section.id}"][data-question="${question.id}"] .question-text`);
-                        const partTextElement = document.querySelector(`[data-section="${section.id}"][data-question="${question.id}"][data-part="${part.id}"] .part-text`);
+                    const questionTextElement = document.querySelector(`[data-question="${question.id}"] .question-text`);
+                    const partTextElement = document.querySelector(`[data-question="${question.id}"][data-part="${part.id}"] .part-text`);
 
-                        try {
-                            if (window.MathJax) await new Promise(resolve => setTimeout(resolve, 100));
+                    try {
+                        if (window.MathJax) await new Promise(resolve => setTimeout(resolve, 100));
 
-                            if (questionTextElement) {
-                                const questionCanvas = await html2canvas(questionTextElement, { scale: 2, backgroundColor: '#ffffff' });
-                                const questionImgData = questionCanvas.toDataURL('image/png');
-                                const questionImgWidth = Math.min(170, questionCanvas.width * 0.25);
-                                const questionImgHeight = questionCanvas.height * (questionImgWidth / questionCanvas.width);
-                                pdf.addImage(questionImgData, 'PNG', 15, yPos, questionImgWidth, questionImgHeight);
-                                yPos += questionImgHeight + 8;
-                            }
-
-                            if (partTextElement && part.text) {
-                                const partCanvas = await html2canvas(partTextElement, { scale: 2, backgroundColor: '#ffffff' });
-                                const partImgData = partCanvas.toDataURL('image/png');
-                                const partImgWidth = Math.min(170, partCanvas.width * 0.25);
-                                const partImgHeight = partCanvas.height * (partImgWidth / partCanvas.width);
-                                pdf.addImage(partImgData, 'PNG', 15, yPos, partImgWidth, partImgHeight);
-                                yPos += partImgHeight + 15;
-                            } else {
-                                yPos += 15;
-                            }
-
-                        } catch (error) {
-                            console.warn('Fallback:', error);
-                            const questionText = `Question ${question.id}: ${question.text}`;
-                            const partText = part.text ? `Part ${part.id}: ${part.text}` : '';
-                            pdf.setFontSize(12);
-                            pdf.setFont(undefined, 'bold');
-                            const questionLines = pdf.splitTextToSize(questionText, 170);
-                            pdf.text(questionLines, 15, yPos);
-                            yPos += questionLines.length * 6 + 5;
-
-                            if (partText) {
-                                pdf.setFont(undefined, 'normal');
-                                const partLines = pdf.splitTextToSize(partText, 170);
-                                pdf.text(partLines, 15, yPos);
-                                yPos += partLines.length * 6 + 15;
-                            }
+                        if (questionTextElement) {
+                            const questionCanvas = await html2canvas(questionTextElement, { scale: 2, backgroundColor: '#ffffff' });
+                            const questionImgData = questionCanvas.toDataURL('image/png');
+                            const questionImgWidth = Math.min(170, questionCanvas.width * 0.25);
+                            const questionImgHeight = questionCanvas.height * (questionImgWidth / questionCanvas.width);
+                            pdf.addImage(questionImgData, 'PNG', 15, yPos, questionImgWidth, questionImgHeight);
+                            yPos += questionImgHeight + 8;
                         }
 
-                        const canvas = document.querySelector(`canvas[data-section="${section.id}"][data-question="${question.id}"][data-part="${part.id}"]`);
-                        if (canvas) {
-                            const imgData = canvas.toDataURL('image/png');
-                            const imgWidth = Math.min(170, canvas.width * 0.35);
-                            const imgHeight = canvas.height * (imgWidth / canvas.width);
-                            pdf.addImage(imgData, 'PNG', 15, yPos, imgWidth, imgHeight);
+                        if (partTextElement && part.text) {
+                            const partCanvas = await html2canvas(partTextElement, { scale: 2, backgroundColor: '#ffffff' });
+                            const partImgData = partCanvas.toDataURL('image/png');
+                            const partImgWidth = Math.min(170, partCanvas.width * 0.25);
+                            const partImgHeight = partCanvas.height * (partImgWidth / partCanvas.width);
+                            pdf.addImage(partImgData, 'PNG', 15, yPos, partImgWidth, partImgHeight);
+                            yPos += partImgHeight + 15;
+                        } else {
+                            yPos += 15;
                         }
 
-                        // Update progress bar
-                        processedParts++;
-                        progressBar.value = Math.round((processedParts / totalParts) * 100);
+                    } catch (error) {
+                        console.warn('Fallback:', error);
+                        const questionText = `Question ${question.id}: ${question.text}`;
+                        const partText = part.text ? `Part ${part.id}: ${part.text}` : '';
+                        pdf.setFontSize(12);
+                        pdf.setFont(undefined, 'bold');
+                        const questionLines = pdf.splitTextToSize(questionText, 170);
+                        pdf.text(questionLines, 15, yPos);
+                        yPos += questionLines.length * 6 + 5;
+
+                        if (partText) {
+                            pdf.setFont(undefined, 'normal');
+                            const partLines = pdf.splitTextToSize(partText, 170);
+                            pdf.text(partLines, 15, yPos);
+                            yPos += partLines.length * 6 + 15;
+                        }
                     }
+
+                    const canvas = document.querySelector(`canvas[data-question="${question.id}"][data-part="${part.id}"]`);
+                    if (canvas) {
+                        const imgData = canvas.toDataURL('image/png');
+                        const imgWidth = Math.min(170, canvas.width * 0.35);
+                        const imgHeight = canvas.height * (imgWidth / canvas.width);
+                        pdf.addImage(imgData, 'PNG', 15, yPos, imgWidth, imgHeight);
+                    }
+
+                    // Update progress bar
+                    processedParts++;
+                    progressBar.value = Math.round((processedParts / totalParts) * 100);
                 }
             }
 
