@@ -1,6 +1,8 @@
 class QuizApp {
     constructor() {
         this.questions = [];
+        this.sections = []; // Add sections array
+        this.currentSectionIndex = 0; // Track current section
         this.canvases = [];
         this.currentColor = '#000000';
         this.isErasing = false;
@@ -37,7 +39,6 @@ class QuizApp {
                 refreshBtn.disabled = false;
             });
         }
-        
     }
 
     // File tree functionality
@@ -266,127 +267,80 @@ class QuizApp {
         }
     }
 
-    initializeRepoFileSelector() {
-        const select = document.getElementById('repoFileSelect');
-        const label = document.getElementById('repoFileLabel');
+    parseLatexFile(content) {
+        // Parse sections first
+        this.sections = this.parseSections(content);
         
-        if (!select || !label) {
-            console.warn('Repository file selector elements not found');
-            return;
+        if (this.sections.length > 0) {
+            // We have sections, so render carousel
+            this.renderSectionCarousel();
+        } else {
+            // No sections, parse as single document
+            this.questions = this.parseQuestionsFromContent(content);
+            this.renderQuestions();
         }
         
-        // Create custom dropdown container
-        const dropdownContainer = document.createElement('div');
-        dropdownContainer.className = 'custom-dropdown';
-        dropdownContainer.style.cssText = `
-            position: relative;
-            display: inline-block;
-            width: 100%;
-        `;
-        
-        // Create dropdown list
-        const dropdownList = document.createElement('div');
-        dropdownList.className = 'dropdown-list';
-        dropdownList.style.cssText = `
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 1000;
-            display: none;
-        `;
-        
-        // Insert dropdown after the label
-        label.parentNode.insertBefore(dropdownContainer, label.nextSibling);
-        dropdownContainer.appendChild(dropdownList);
-        
-        // Handle label click to toggle dropdown
-        label.addEventListener('click', async (e) => {
-            e.preventDefault();
-            
-            if (dropdownList.style.display === 'block') {
-                dropdownList.style.display = 'none';
-                return;
-            }
-            
-            // Show loading state
-            label.textContent = '📚 Loading files...';
-            dropdownList.innerHTML = '<div style="padding: 10px; color: #6c757d;">Loading...</div>';
-            dropdownList.style.display = 'block';
-            
-            // Load files from repository
-            const files = await this.getLatexFilesFromRepo();
-            
-            // Clear dropdown and populate with files
-            dropdownList.innerHTML = '';
-            
-            if (files.length === 0) {
-                dropdownList.innerHTML = '<div style="padding: 10px; color: #6c757d;">No .tex files found</div>';
-                label.textContent = '📚 Choose Repository LaTeX File';
-                return;
-            }
-            
-            files.forEach(file => {
-                const option = document.createElement('div');
-                option.style.cssText = `
-                    padding: 10px 15px;
-                    cursor: pointer;
-                    border-bottom: 1px solid #eee;
-                    transition: background-color 0.2s;
-                `;
-                option.textContent = file.name;
-                
-                option.addEventListener('mouseenter', () => {
-                    option.style.backgroundColor = '#f8f9fa';
-                });
-                
-                option.addEventListener('mouseleave', () => {
-                    option.style.backgroundColor = 'white';
-                });
-                
-                option.addEventListener('click', () => {
-                    label.textContent = `📚 ${file.name}`;
-                    dropdownList.style.display = 'none';
-                    this.loadLatexFileFromGitHub(file);
-                });
-                
-                dropdownList.appendChild(option);
-            });
-            
-            // Remove last border
-            const lastOption = dropdownList.lastElementChild;
-            if (lastOption) {
-                lastOption.style.borderBottom = 'none';
-            }
-            
-            label.textContent = '📚 Choose Repository LaTeX File';
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!dropdownContainer.contains(e.target) && !label.contains(e.target)) {
-                dropdownList.style.display = 'none';
-            }
-        });
+        document.getElementById('loading').style.display = 'none';
     }
 
+    parseSections(content) {
+        const sections = [];
+        
+        // Split content by sections (both \section{...} and \section*{...})
+        const sectionRegex = /\\section\*?\{([^}]+)\}/g;
+        const sectionMatches = [...content.matchAll(sectionRegex)];
+        
+        if (sectionMatches.length === 0) {
+            // No sections found, treat entire content as one section
+            return [];
+        }
+        
+        // Split content by section positions
+        let lastIndex = 0;
+        
+        sectionMatches.forEach((match, index) => {
+            const sectionTitle = match[1];
+            const sectionStart = match.index;
+            
+            // Add content before first section as introduction if it exists
+            if (index === 0 && sectionStart > 0) {
+                const introContent = content.substring(0, sectionStart);
+                const introQuestions = this.parseQuestionsFromContent(introContent);
+                if (introQuestions.length > 0) {
+                    sections.push({
+                        title: 'Introduction',
+                        questions: introQuestions,
+                        isIntro: true
+                    });
+                }
+            }
+            
+            // Find the start of next section or end of document
+            const nextSectionStart = index < sectionMatches.length - 1 
+                ? sectionMatches[index + 1].index 
+                : content.length;
+            
+            // Extract content for this section
+            const sectionContent = content.substring(sectionStart, nextSectionStart);
+            const questions = this.parseQuestionsFromContent(sectionContent);
+            
+            sections.push({
+                title: sectionTitle,
+                questions: questions,
+                content: sectionContent
+            });
+        });
+        
+        return sections;
+    }
 
-
-    parseLatexFile(content) {
+    parseQuestionsFromContent(content) {
         const questions = [];
         
         // Extract questions using regex
         const questionsMatch = content.match(/\\begin{questions}(.*?)\\end{questions}/s);
         if (!questionsMatch) {
-            alert('No questions found in the LaTeX file. Please check the format.');
-            document.getElementById('loading').style.display = 'none';
-            return;
+            return questions; // No questions found in this content
         }
 
         const questionsContent = questionsMatch[1];
@@ -424,140 +378,351 @@ class QuizApp {
             questions.push(question);
         });
 
-        this.questions = questions;
-        this.renderQuestions();
-        document.getElementById('loading').style.display = 'none';
+        return questions;
     }
 
-    
-// Updated renderQuestions method - remove individual tools from canvas areas
-renderQuestions() {
-    const container = document.getElementById('questionsContainer');
-    container.innerHTML = '';
+    renderSectionCarousel() {
+        const carousel = document.getElementById('sectionCarousel');
+        const questionsContainer = document.getElementById('questionsContainer');
+        
+        // Hide regular questions container and show carousel
+        questionsContainer.style.display = 'none';
+        carousel.style.display = 'block';
+        
+        this.renderSectionTabs();
+        this.renderCarouselSlides();
+        this.initializeCarouselControls();
+        this.initializeSidebarTools(); // Initialize sidebar tools for carousel mode
+        this.showSection(0); // Show first section
+        this.renderMath(); // Render math in all sections
+        
+        document.getElementById('generatePdf').style.display = 'block';
+    }
 
-    this.questions.forEach((question) => {
-        const questionDiv = document.createElement('div');
-        questionDiv.className = 'question-container';
-        questionDiv.setAttribute('data-question', question.id);
-        questionDiv.innerHTML = `
-            <div class="question-text">
-                <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
-            </div>
-        `;
+    renderSectionTabs() {
+        const tabsContainer = document.getElementById('sectionTabs');
+        tabsContainer.innerHTML = '';
+        
+        this.sections.forEach((section, index) => {
+            const tab = document.createElement('button');
+            tab.className = `section-tab ${index === 0 ? 'active' : ''}`;
+            tab.textContent = section.title;
+            tab.addEventListener('click', () => this.showSection(index));
+            tabsContainer.appendChild(tab);
+        });
+    }
 
-        question.parts.forEach((part) => {
-            const partDiv = document.createElement('div');
-            partDiv.className = 'part-container';
-            partDiv.setAttribute('data-question', question.id);
-            partDiv.setAttribute('data-part', part.id);
+    renderCarouselSlides() {
+        const container = document.getElementById('carouselContainer');
+        container.innerHTML = '';
+        
+        this.sections.forEach((section, sectionIndex) => {
+            const slide = document.createElement('div');
+            slide.className = 'carousel-slide';
+            slide.innerHTML = `
+                <div class="section-title">${section.title}</div>
+                <div class="section-questions" data-section="${sectionIndex}"></div>
+            `;
+            container.appendChild(slide);
             
-            const partContent = `
-                <div class="part-text">
-                    ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
-                </div>
-                <div class="canvas-area">
-                    <div class="canvas-container">
-                        <canvas class="drawing-canvas" width="400" height="300" data-question="${question.id}" data-part="${part.id}"></canvas>
-                        <div class="resize-handle"></div>
-                    </div>
+            // Render questions for this section
+            this.renderQuestionsForSection(section.questions, sectionIndex);
+        });
+    }
+
+    renderQuestionsForSection(questions, sectionIndex) {
+        const sectionQuestionsContainer = document.querySelector(`[data-section="${sectionIndex}"]`);
+        sectionQuestionsContainer.innerHTML = '';
+
+        questions.forEach((question) => {
+            const questionDiv = document.createElement('div');
+            questionDiv.className = 'question-container';
+            questionDiv.setAttribute('data-question', question.id);
+            questionDiv.setAttribute('data-section', sectionIndex);
+            questionDiv.innerHTML = `
+                <div class="question-text">
+                    <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
                 </div>
             `;
-            
-            partDiv.innerHTML = partContent;
-            questionDiv.appendChild(partDiv);
-        });
 
-        container.appendChild(questionDiv);
-    });
+            question.parts.forEach((part) => {
+                const partDiv = document.createElement('div');
+                partDiv.className = 'part-container';
+                partDiv.setAttribute('data-question', question.id);
+                partDiv.setAttribute('data-part', part.id);
+                partDiv.setAttribute('data-section', sectionIndex);
+                
+                const partContent = `
+                    <div class="part-text">
+                        ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
+                    </div>
+                    <div class="canvas-area">
+                        <div class="canvas-container">
+                            <canvas class="drawing-canvas" width="400" height="300" 
+                                    data-question="${question.id}" 
+                                    data-part="${part.id}"
+                                    data-section="${sectionIndex}"></canvas>
+                            <div class="resize-handle"></div>
+                        </div>
+                    </div>
+                `;
+                
+                partDiv.innerHTML = partContent;
+                questionDiv.appendChild(partDiv);
+            });
 
-    this.initializeCanvases();
-    this.initializeSidebarTools(); // New method for sidebar tools
-    this.renderMath();
-    document.getElementById('generatePdf').style.display = 'block';
-}
-
-// New method to initialize sidebar tools
-initializeSidebarTools() {
-    // Initialize with default values
-    this.currentColor = '#000000';
-    this.isErasing = false;
-    
-    // Color picker event listeners
-    document.querySelectorAll('.sidebar-tools .color-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            // Remove active class from all color buttons
-            document.querySelectorAll('.sidebar-tools .color-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            
-            this.currentColor = e.target.dataset.color;
-            this.isErasing = false;
-            
-            // Remove active from eraser
-            const eraserBtn = document.querySelector('.sidebar-tools .eraser-btn');
-            if (eraserBtn) {
-                eraserBtn.classList.remove('active');
-            }
-            
-            // Visual feedback
-            this.updateToolStatus();
-            this.updateCanvasCursors();
-        });
-    });
-    
-    // Eraser event listener
-    const eraserBtn = document.querySelector('.sidebar-tools .eraser-btn');
-    if (eraserBtn) {
-        eraserBtn.addEventListener('click', (e) => {
-            this.isErasing = !this.isErasing;
-            e.target.classList.toggle('active');
-            
-            // Remove active from color buttons if erasing
-            if (this.isErasing) {
-                document.querySelectorAll('.sidebar-tools .color-btn').forEach(b => b.classList.remove('active'));
-            } else {
-                // Restore the last selected color if turning off eraser
-                const blackBtn = document.querySelector('.sidebar-tools .color-btn[data-color="#000000"]');
-                if (blackBtn) {
-                    blackBtn.classList.add('active');
-                }
-            }
-            
-            // Visual feedback
-            this.updateToolStatus();
-            this.updateCanvasCursors();
+            sectionQuestionsContainer.appendChild(questionDiv);
         });
     }
-    
-    // Initialize tool status
-    this.updateToolStatus();
-}
 
-// New method to update tool status display
-updateToolStatus() {
-    const toolInfo = document.querySelector('.tool-info small');
-    if (!toolInfo) return; // Safety check
-    
-    if (this.isErasing) {
-        toolInfo.textContent = 'Eraser mode active - Click canvas to erase';
-        toolInfo.style.color = '#ee5a24';
-    } else {
-        toolInfo.textContent = 'Drawing mode active - Click canvas to draw';
-        toolInfo.style.color = this.currentColor || '#000000';
+    initializeCarouselControls() {
+        const prevBtn = document.getElementById('prevSection');
+        const nextBtn = document.getElementById('nextSection');
+        
+        prevBtn.addEventListener('click', () => this.previousSection());
+        nextBtn.addEventListener('click', () => this.nextSection());
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) return; // Don't interfere with browser shortcuts
+            
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                this.previousSection();
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                this.nextSection();
+            }
+        });
+        
+        this.updateCarouselControls();
     }
-}
 
-// New method to update canvas cursors
-updateCanvasCursors() {
-    const canvases = document.querySelectorAll('.drawing-canvas');
-    canvases.forEach(canvas => {
-        if (this.isErasing) {
-            canvas.classList.add('eraser-mode');
-        } else {
-            canvas.classList.remove('eraser-mode');
+    showSection(index) {
+        if (index < 0 || index >= this.sections.length) return;
+        
+        this.currentSectionIndex = index;
+        
+        // Update tabs
+        document.querySelectorAll('.section-tab').forEach((tab, i) => {
+            tab.classList.toggle('active', i === index);
+        });
+        
+        // Move carousel
+        const container = document.getElementById('carouselContainer');
+        container.style.transform = `translateX(-${index * 100}%)`;
+        
+        this.updateCarouselControls();
+        
+        // Initialize canvases for this section if not already done
+        setTimeout(() => {
+            this.initializeCanvasesForSection(index);
+        }, 400); // Wait for transition
+    }
+
+    previousSection() {
+        if (this.currentSectionIndex > 0) {
+            this.showSection(this.currentSectionIndex - 1);
         }
-    });
-}
+    }
 
+    nextSection() {
+        if (this.currentSectionIndex < this.sections.length - 1) {
+            this.showSection(this.currentSectionIndex + 1);
+        }
+    }
+
+    updateCarouselControls() {
+        const prevBtn = document.getElementById('prevSection');
+        const nextBtn = document.getElementById('nextSection');
+        const counter = document.getElementById('sectionCounter');
+        
+        prevBtn.disabled = this.currentSectionIndex === 0;
+        nextBtn.disabled = this.currentSectionIndex === this.sections.length - 1;
+        
+        counter.textContent = `${this.currentSectionIndex + 1} / ${this.sections.length}`;
+    }
+
+    initializeCanvasesForSection(sectionIndex) {
+        const sectionCanvases = document.querySelectorAll(`[data-section="${sectionIndex}"] .drawing-canvas`);
+        
+        sectionCanvases.forEach((canvas) => {
+            // Skip if already initialized
+            if (canvas.dataset.initialized) return;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 2;
+            
+            this.canvases.push({ canvas, ctx });
+            
+            // Visual feedback when canvas is active
+            canvas.addEventListener('mouseenter', () => {
+                canvas.parentElement.classList.add('active');
+            });
+            
+            canvas.addEventListener('mouseleave', () => {
+                if (!this.isDrawing) {
+                    canvas.parentElement.classList.remove('active');
+                }
+            });
+            
+            // Drawing event listeners
+            canvas.addEventListener('mousedown', this.startDrawing.bind(this));
+            canvas.addEventListener('mousemove', this.draw.bind(this));
+            canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
+            canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
+            
+            // Touch events for stylus/finger
+            canvas.addEventListener('touchstart', this.handleTouch.bind(this));
+            canvas.addEventListener('touchmove', this.handleTouch.bind(this));
+            canvas.addEventListener('touchend', this.stopDrawing.bind(this));
+            
+            // Pinch to zoom
+            canvas.addEventListener('gesturestart', this.handleGesture.bind(this));
+            canvas.addEventListener('gesturechange', this.handleGesture.bind(this));
+            
+            // Resize handle
+            const resizeHandle = canvas.parentElement.querySelector('.resize-handle');
+            resizeHandle.addEventListener('mousedown', (e) => this.startResize(e, canvas));
+            
+            canvas.dataset.initialized = 'true';
+        });
+    }
+
+    // Updated renderQuestions method - for non-carousel mode
+    renderQuestions() {
+        const container = document.getElementById('questionsContainer');
+        const carousel = document.getElementById('sectionCarousel');
+        
+        // Hide carousel and show regular questions container
+        carousel.style.display = 'none';
+        container.style.display = 'block';
+        container.innerHTML = '';
+
+        this.questions.forEach((question) => {
+            const questionDiv = document.createElement('div');
+            questionDiv.className = 'question-container';
+            questionDiv.setAttribute('data-question', question.id);
+            questionDiv.innerHTML = `
+                <div class="question-text">
+                    <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
+                </div>
+            `;
+
+            question.parts.forEach((part) => {
+                const partDiv = document.createElement('div');
+                partDiv.className = 'part-container';
+                partDiv.setAttribute('data-question', question.id);
+                partDiv.setAttribute('data-part', part.id);
+                
+                const partContent = `
+                    <div class="part-text">
+                        ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
+                    </div>
+                    <div class="canvas-area">
+                        <div class="canvas-container">
+                            <canvas class="drawing-canvas" width="400" height="300" data-question="${question.id}" data-part="${part.id}"></canvas>
+                            <div class="resize-handle"></div>
+                        </div>
+                    </div>
+                `;
+                
+                partDiv.innerHTML = partContent;
+                questionDiv.appendChild(partDiv);
+            });
+
+            container.appendChild(questionDiv);
+        });
+
+        this.initializeCanvases();
+        this.initializeSidebarTools();
+        this.renderMath();
+        document.getElementById('generatePdf').style.display = 'block';
+    }
+
+    // New method to initialize sidebar tools
+    initializeSidebarTools() {
+        // Initialize with default values
+        this.currentColor = '#000000';
+        this.isErasing = false;
+        
+        // Color picker event listeners
+        document.querySelectorAll('.sidebar-tools .color-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Remove active class from all color buttons
+                document.querySelectorAll('.sidebar-tools .color-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                this.currentColor = e.target.dataset.color;
+                this.isErasing = false;
+                
+                // Remove active from eraser
+                const eraserBtn = document.querySelector('.sidebar-tools .eraser-btn');
+                if (eraserBtn) {
+                    eraserBtn.classList.remove('active');
+                }
+                
+                // Visual feedback
+                this.updateToolStatus();
+                this.updateCanvasCursors();
+            });
+        });
+        
+        // Eraser event listener
+        const eraserBtn = document.querySelector('.sidebar-tools .eraser-btn');
+        if (eraserBtn) {
+            eraserBtn.addEventListener('click', (e) => {
+                this.isErasing = !this.isErasing;
+                e.target.classList.toggle('active');
+                
+                // Remove active from color buttons if erasing
+                if (this.isErasing) {
+                    document.querySelectorAll('.sidebar-tools .color-btn').forEach(b => b.classList.remove('active'));
+                } else {
+                    // Restore the last selected color if turning off eraser
+                    const blackBtn = document.querySelector('.sidebar-tools .color-btn[data-color="#000000"]');
+                    if (blackBtn) {
+                        blackBtn.classList.add('active');
+                    }
+                }
+                
+                // Visual feedback
+                this.updateToolStatus();
+                this.updateCanvasCursors();
+            });
+        }
+        
+        // Initialize tool status
+        this.updateToolStatus();
+    }
+
+    // New method to update tool status display
+    updateToolStatus() {
+        const toolInfo = document.querySelector('.tool-info small');
+        if (!toolInfo) return; // Safety check
+        
+        if (this.isErasing) {
+            toolInfo.textContent = 'Eraser mode active - Click canvas to erase';
+            toolInfo.style.color = '#ee5a24';
+        } else {
+            toolInfo.textContent = 'Drawing mode active - Click canvas to draw';
+            toolInfo.style.color = this.currentColor || '#000000';
+        }
+    }
+
+    // New method to update canvas cursors
+    updateCanvasCursors() {
+        const canvases = document.querySelectorAll('.drawing-canvas');
+        canvases.forEach(canvas => {
+            if (this.isErasing) {
+                canvas.classList.add('eraser-mode');
+            } else {
+                canvas.classList.remove('eraser-mode');
+            }
+        });
+    }
 
     processLatexText(text) {
         return text
@@ -615,48 +780,53 @@ updateCanvasCursors() {
         }
     }
 
-  initializeCanvases() {
-    const canvases = document.querySelectorAll('.drawing-canvas');
-    
-    canvases.forEach((canvas) => {
-        const ctx = canvas.getContext('2d');
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = 2;
+    initializeCanvases() {
+        const canvases = document.querySelectorAll('.drawing-canvas');
         
-        this.canvases.push({ canvas, ctx });
-        
-        // Visual feedback when canvas is active
-        canvas.addEventListener('mouseenter', () => {
-            canvas.parentElement.classList.add('active');
+        canvases.forEach((canvas) => {
+            // Skip if already initialized
+            if (canvas.dataset.initialized) return;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 2;
+            
+            this.canvases.push({ canvas, ctx });
+            
+            // Visual feedback when canvas is active
+            canvas.addEventListener('mouseenter', () => {
+                canvas.parentElement.classList.add('active');
+            });
+            
+            canvas.addEventListener('mouseleave', () => {
+                if (!this.isDrawing) {
+                    canvas.parentElement.classList.remove('active');
+                }
+            });
+            
+            // Drawing event listeners
+            canvas.addEventListener('mousedown', this.startDrawing.bind(this));
+            canvas.addEventListener('mousemove', this.draw.bind(this));
+            canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
+            canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
+            
+            // Touch events for stylus/finger
+            canvas.addEventListener('touchstart', this.handleTouch.bind(this));
+            canvas.addEventListener('touchmove', this.handleTouch.bind(this));
+            canvas.addEventListener('touchend', this.stopDrawing.bind(this));
+            
+            // Pinch to zoom
+            canvas.addEventListener('gesturestart', this.handleGesture.bind(this));
+            canvas.addEventListener('gesturechange', this.handleGesture.bind(this));
+            
+            // Resize handle
+            const resizeHandle = canvas.parentElement.querySelector('.resize-handle');
+            resizeHandle.addEventListener('mousedown', (e) => this.startResize(e, canvas));
+            
+            canvas.dataset.initialized = 'true';
         });
-        
-        canvas.addEventListener('mouseleave', () => {
-            if (!this.isDrawing) {
-                canvas.parentElement.classList.remove('active');
-            }
-        });
-        
-        // Drawing event listeners
-        canvas.addEventListener('mousedown', this.startDrawing.bind(this));
-        canvas.addEventListener('mousemove', this.draw.bind(this));
-        canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
-        canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
-        
-        // Touch events for stylus/finger
-        canvas.addEventListener('touchstart', this.handleTouch.bind(this));
-        canvas.addEventListener('touchmove', this.handleTouch.bind(this));
-        canvas.addEventListener('touchend', this.stopDrawing.bind(this));
-        
-        // Pinch to zoom
-        canvas.addEventListener('gesturestart', this.handleGesture.bind(this));
-        canvas.addEventListener('gesturechange', this.handleGesture.bind(this));
-        
-        // Resize handle
-        const resizeHandle = canvas.parentElement.querySelector('.resize-handle');
-        resizeHandle.addEventListener('mousedown', (e) => this.startResize(e, canvas));
-    });
-}
+    }
 
     startDrawing(e) {
         this.isDrawing = true;
@@ -681,11 +851,15 @@ updateCanvasCursors() {
         
         if (this.isErasing) {
             ctx.globalCompositeOperation = 'destination-out';
-            ctx.lineWidth = 50;
+            ctx.lineWidth = 20;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
         } else {
             ctx.globalCompositeOperation = 'source-over';
             ctx.strokeStyle = this.currentColor;
             ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
         }
         
         ctx.stroke();
@@ -694,15 +868,15 @@ updateCanvasCursors() {
         this.lastY = currentY;
     }
 
-stopDrawing() {
-    if (this.isDrawing) {
-        this.isDrawing = false;
-        // Remove active state from all canvas containers
-        document.querySelectorAll('.canvas-container').forEach(container => {
-            container.classList.remove('active');
-        });
+    stopDrawing() {
+        if (this.isDrawing) {
+            this.isDrawing = false;
+            // Remove active state from all canvas containers
+            document.querySelectorAll('.canvas-container').forEach(container => {
+                container.classList.remove('active');
+            });
+        }
     }
-}
 
     handleTouch(e) {
         e.preventDefault();
@@ -772,71 +946,157 @@ stopDrawing() {
             const pdf = new jsPDF('p', 'mm', 'a4');
             let isFirstPage = true;
 
-            const totalParts = this.questions.reduce((acc, q) => acc + q.parts.length, 0);
-            let processedParts = 0;
+            if (this.sections.length > 0) {
+                // Handle carousel mode - iterate through sections
+                let totalParts = 0;
+                this.sections.forEach(section => {
+                    totalParts += section.questions.reduce((acc, q) => acc + q.parts.length, 0);
+                });
+                
+                let processedParts = 0;
 
-            for (const question of this.questions) {
-                for (const part of question.parts) {
+                for (const [sectionIndex, section] of this.sections.entries()) {
+                    // Add section title page
                     if (!isFirstPage) pdf.addPage();
                     isFirstPage = false;
+                    
+                    pdf.setFontSize(18);
+                    pdf.setFont(undefined, 'bold');
+                    pdf.text(section.title, 15, 30);
+                    
+                    for (const question of section.questions) {
+                        for (const part of question.parts) {
+                            if (!isFirstPage) pdf.addPage();
+                            isFirstPage = false;
 
-                    let yPos = 20;
+                            let yPos = 20;
 
-                    const questionTextElement = document.querySelector(`[data-question="${question.id}"] .question-text`);
-                    const partTextElement = document.querySelector(`[data-question="${question.id}"][data-part="${part.id}"] .part-text`);
+                            const questionTextElement = document.querySelector(`[data-section="${sectionIndex}"][data-question="${question.id}"] .question-text`);
+                            const partTextElement = document.querySelector(`[data-section="${sectionIndex}"][data-question="${question.id}"][data-part="${part.id}"] .part-text`);
 
-                    try {
-                        if (window.MathJax) await new Promise(resolve => setTimeout(resolve, 100));
+                            try {
+                                if (window.MathJax) await new Promise(resolve => setTimeout(resolve, 100));
 
-                        if (questionTextElement) {
-                            const questionCanvas = await html2canvas(questionTextElement, { scale: 2, backgroundColor: '#ffffff' });
-                            const questionImgData = questionCanvas.toDataURL('image/png');
-                            const questionImgWidth = Math.min(170, questionCanvas.width * 0.25);
-                            const questionImgHeight = questionCanvas.height * (questionImgWidth / questionCanvas.width);
-                            pdf.addImage(questionImgData, 'PNG', 15, yPos, questionImgWidth, questionImgHeight);
-                            yPos += questionImgHeight + 8;
-                        }
+                                if (questionTextElement) {
+                                    const questionCanvas = await html2canvas(questionTextElement, { scale: 2, backgroundColor: '#ffffff' });
+                                    const questionImgData = questionCanvas.toDataURL('image/png');
+                                    const questionImgWidth = Math.min(170, questionCanvas.width * 0.25);
+                                    const questionImgHeight = questionCanvas.height * (questionImgWidth / questionCanvas.width);
+                                    pdf.addImage(questionImgData, 'PNG', 15, yPos, questionImgWidth, questionImgHeight);
+                                    yPos += questionImgHeight + 8;
+                                }
 
-                        if (partTextElement && part.text) {
-                            const partCanvas = await html2canvas(partTextElement, { scale: 2, backgroundColor: '#ffffff' });
-                            const partImgData = partCanvas.toDataURL('image/png');
-                            const partImgWidth = Math.min(170, partCanvas.width * 0.25);
-                            const partImgHeight = partCanvas.height * (partImgWidth / partCanvas.width);
-                            pdf.addImage(partImgData, 'PNG', 15, yPos, partImgWidth, partImgHeight);
-                            yPos += partImgHeight + 15;
-                        } else {
-                            yPos += 15;
-                        }
+                                if (partTextElement && part.text) {
+                                    const partCanvas = await html2canvas(partTextElement, { scale: 2, backgroundColor: '#ffffff' });
+                                    const partImgData = partCanvas.toDataURL('image/png');
+                                    const partImgWidth = Math.min(170, partCanvas.width * 0.25);
+                                    const partImgHeight = partCanvas.height * (partImgWidth / partCanvas.width);
+                                    pdf.addImage(partImgData, 'PNG', 15, yPos, partImgWidth, partImgHeight);
+                                    yPos += partImgHeight + 15;
+                                } else {
+                                    yPos += 15;
+                                }
 
-                    } catch (error) {
-                        console.warn('Fallback:', error);
-                        const questionText = `Question ${question.id}: ${question.text}`;
-                        const partText = part.text ? `Part ${part.id}: ${part.text}` : '';
-                        pdf.setFontSize(12);
-                        pdf.setFont(undefined, 'bold');
-                        const questionLines = pdf.splitTextToSize(questionText, 170);
-                        pdf.text(questionLines, 15, yPos);
-                        yPos += questionLines.length * 6 + 5;
+                            } catch (error) {
+                                console.warn('Fallback:', error);
+                                const questionText = `${section.title} - Question ${question.id}: ${question.text}`;
+                                const partText = part.text ? `Part ${part.id}: ${part.text}` : '';
+                                pdf.setFontSize(12);
+                                pdf.setFont(undefined, 'bold');
+                                const questionLines = pdf.splitTextToSize(questionText, 170);
+                                pdf.text(questionLines, 15, yPos);
+                                yPos += questionLines.length * 6 + 5;
 
-                        if (partText) {
-                            pdf.setFont(undefined, 'normal');
-                            const partLines = pdf.splitTextToSize(partText, 170);
-                            pdf.text(partLines, 15, yPos);
-                            yPos += partLines.length * 6 + 15;
+                                if (partText) {
+                                    pdf.setFont(undefined, 'normal');
+                                    const partLines = pdf.splitTextToSize(partText, 170);
+                                    pdf.text(partLines, 15, yPos);
+                                    yPos += partLines.length * 6 + 15;
+                                }
+                            }
+
+                            const canvas = document.querySelector(`canvas[data-section="${sectionIndex}"][data-question="${question.id}"][data-part="${part.id}"]`);
+                            if (canvas) {
+                                const imgData = canvas.toDataURL('image/png');
+                                const imgWidth = Math.min(170, canvas.width * 0.35);
+                                const imgHeight = canvas.height * (imgWidth / canvas.width);
+                                pdf.addImage(imgData, 'PNG', 15, yPos, imgWidth, imgHeight);
+                            }
+
+                            // Update progress bar
+                            processedParts++;
+                            progressBar.value = Math.round((processedParts / totalParts) * 100);
                         }
                     }
+                }
+            } else {
+                // Handle regular mode - use this.questions
+                const totalParts = this.questions.reduce((acc, q) => acc + q.parts.length, 0);
+                let processedParts = 0;
 
-                    const canvas = document.querySelector(`canvas[data-question="${question.id}"][data-part="${part.id}"]`);
-                    if (canvas) {
-                        const imgData = canvas.toDataURL('image/png');
-                        const imgWidth = Math.min(170, canvas.width * 0.35);
-                        const imgHeight = canvas.height * (imgWidth / canvas.width);
-                        pdf.addImage(imgData, 'PNG', 15, yPos, imgWidth, imgHeight);
+                for (const question of this.questions) {
+                    for (const part of question.parts) {
+                        if (!isFirstPage) pdf.addPage();
+                        isFirstPage = false;
+
+                        let yPos = 20;
+
+                        const questionTextElement = document.querySelector(`[data-question="${question.id}"] .question-text`);
+                        const partTextElement = document.querySelector(`[data-question="${question.id}"][data-part="${part.id}"] .part-text`);
+
+                        try {
+                            if (window.MathJax) await new Promise(resolve => setTimeout(resolve, 100));
+
+                            if (questionTextElement) {
+                                const questionCanvas = await html2canvas(questionTextElement, { scale: 2, backgroundColor: '#ffffff' });
+                                const questionImgData = questionCanvas.toDataURL('image/png');
+                                const questionImgWidth = Math.min(170, questionCanvas.width * 0.25);
+                                const questionImgHeight = questionCanvas.height * (questionImgWidth / questionCanvas.width);
+                                pdf.addImage(questionImgData, 'PNG', 15, yPos, questionImgWidth, questionImgHeight);
+                                yPos += questionImgHeight + 8;
+                            }
+
+                            if (partTextElement && part.text) {
+                                const partCanvas = await html2canvas(partTextElement, { scale: 2, backgroundColor: '#ffffff' });
+                                const partImgData = partCanvas.toDataURL('image/png');
+                                const partImgWidth = Math.min(170, partCanvas.width * 0.25);
+                                const partImgHeight = partCanvas.height * (partImgWidth / partCanvas.width);
+                                pdf.addImage(partImgData, 'PNG', 15, yPos, partImgWidth, partImgHeight);
+                                yPos += partImgHeight + 15;
+                            } else {
+                                yPos += 15;
+                            }
+
+                        } catch (error) {
+                            console.warn('Fallback:', error);
+                            const questionText = `Question ${question.id}: ${question.text}`;
+                            const partText = part.text ? `Part ${part.id}: ${part.text}` : '';
+                            pdf.setFontSize(12);
+                            pdf.setFont(undefined, 'bold');
+                            const questionLines = pdf.splitTextToSize(questionText, 170);
+                            pdf.text(questionLines, 15, yPos);
+                            yPos += questionLines.length * 6 + 5;
+
+                            if (partText) {
+                                pdf.setFont(undefined, 'normal');
+                                const partLines = pdf.splitTextToSize(partText, 170);
+                                pdf.text(partLines, 15, yPos);
+                                yPos += partLines.length * 6 + 15;
+                            }
+                        }
+
+                        const canvas = document.querySelector(`canvas[data-question="${question.id}"][data-part="${part.id}"]`);
+                        if (canvas) {
+                            const imgData = canvas.toDataURL('image/png');
+                            const imgWidth = Math.min(170, canvas.width * 0.35);
+                            const imgHeight = canvas.height * (imgWidth / canvas.width);
+                            pdf.addImage(imgData, 'PNG', 15, yPos, imgWidth, imgHeight);
+                        }
+
+                        // Update progress bar
+                        processedParts++;
+                        progressBar.value = Math.round((processedParts / totalParts) * 100);
                     }
-
-                    // Update progress bar
-                    processedParts++;
-                    progressBar.value = Math.round((processedParts / totalParts) * 100);
                 }
             }
 
