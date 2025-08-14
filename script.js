@@ -429,57 +429,98 @@ class QuizApp {
         document.getElementById('loading').style.display = 'none';
     }
 
-    renderQuestions() {
-        const container = document.getElementById('questionsContainer');
-        container.innerHTML = '';
+    
+renderQuestions() {
+    const container = document.getElementById('questionsContainer');
+    container.innerHTML = '';
 
-        this.questions.forEach((question) => {
-            const questionDiv = document.createElement('div');
-            questionDiv.className = 'question-container';
-            questionDiv.setAttribute('data-question', question.id);
-            questionDiv.innerHTML = `
-                <div class="question-text">
-                    <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
+    this.questions.forEach((question) => {
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'question-container';
+        questionDiv.setAttribute('data-question', question.id);
+        questionDiv.innerHTML = `
+            <div class="question-text">
+                <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
+            </div>
+        `;
+
+        question.parts.forEach((part) => {
+            const partDiv = document.createElement('div');
+            partDiv.className = 'part-container';
+            partDiv.setAttribute('data-question', question.id);
+            partDiv.setAttribute('data-part', part.id);
+            
+            const partContent = `
+                <div class="part-text">
+                    ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
+                </div>
+                <div class="canvas-area">
+                    <div class="canvas-container">
+                        <canvas class="drawing-canvas" width="400" height="300" data-question="${question.id}" data-part="${part.id}"></canvas>
+                        <div class="resize-handle"></div>
+                    </div>
                 </div>
             `;
-
-            question.parts.forEach((part) => {
-                const partDiv = document.createElement('div');
-                partDiv.className = 'part-container';
-                partDiv.setAttribute('data-question', question.id);
-                partDiv.setAttribute('data-part', part.id);
-                
-                const partContent = `
-                    <div class="part-text">
-                        ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
-                    </div>
-                    <div class="canvas-area">
-                        <div class="canvas-container">
-                            <canvas class="drawing-canvas" width="400" height="300" data-question="${question.id}" data-part="${part.id}"></canvas>
-                            <div class="resize-handle"></div>
-                        </div>
-                        <div class="tools">
-                            <div class="color-picker">
-                                <div class="color-btn active" style="background-color: #000000;" data-color="#000000"></div>
-                                <div class="color-btn" style="background-color: #0066cc;" data-color="#0066cc"></div>
-                                <div class="color-btn" style="background-color: #cc0000;" data-color="#cc0000"></div>
-                            </div>
-                            <button class="eraser-btn">🧽 Eraser</button>
-                        </div>
-                    </div>
-                `;
-                
-                partDiv.innerHTML = partContent;
-                questionDiv.appendChild(partDiv);
-            });
-
-            container.appendChild(questionDiv);
+            
+            partDiv.innerHTML = partContent;
+            questionDiv.appendChild(partDiv);
         });
 
-        this.initializeCanvases();
-        this.renderMath();
-        document.getElementById('generatePdf').style.display = 'block';
+        container.appendChild(questionDiv);
+    });
+
+    this.initializeCanvases();
+    this.initializeSidebarTools(); // New method for sidebar tools
+    this.renderMath();
+    document.getElementById('generatePdf').style.display = 'block';
+}
+
+// New method to initialize sidebar tools
+initializeSidebarTools() {
+    // Color picker event listeners
+    document.querySelectorAll('.sidebar-tools .color-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            // Remove active class from all color buttons
+            document.querySelectorAll('.sidebar-tools .color-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            this.currentColor = e.target.dataset.color;
+            this.isErasing = false;
+            
+            // Remove active from eraser
+            document.querySelector('.sidebar-tools .eraser-btn').classList.remove('active');
+            
+            // Visual feedback
+            this.updateToolStatus();
+        });
+    });
+    
+    // Eraser event listener
+    document.querySelector('.sidebar-tools .eraser-btn').addEventListener('click', (e) => {
+        this.isErasing = !this.isErasing;
+        e.target.classList.toggle('active');
+        
+        // Remove active from color buttons if erasing
+        if (this.isErasing) {
+            document.querySelectorAll('.sidebar-tools .color-btn').forEach(b => b.classList.remove('active'));
+        }
+        
+        // Visual feedback
+        this.updateToolStatus();
+    });
+}
+
+// New method to update tool status display
+updateToolStatus() {
+    const toolInfo = document.querySelector('.tool-info small');
+    if (this.isErasing) {
+        toolInfo.textContent = 'Eraser mode active - Click canvas to erase';
+        toolInfo.style.color = '#ee5a24';
+    } else {
+        toolInfo.textContent = 'Drawing mode active - Click canvas to draw';
+        toolInfo.style.color = this.currentColor;
     }
+}
 
     processLatexText(text) {
         return text
@@ -538,63 +579,47 @@ class QuizApp {
     }
 
     initializeCanvases() {
-        const canvases = document.querySelectorAll('.drawing-canvas');
+    const canvases = document.querySelectorAll('.drawing-canvas');
+    
+    canvases.forEach((canvas) => {
+        const ctx = canvas.getContext('2d');
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 2;
         
-        canvases.forEach((canvas) => {
-            const ctx = canvas.getContext('2d');
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.lineWidth = 2;
-            
-            this.canvases.push({ canvas, ctx });
-            
-            // Drawing event listeners
-            canvas.addEventListener('mousedown', this.startDrawing.bind(this));
-            canvas.addEventListener('mousemove', this.draw.bind(this));
-            canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
-            canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
-            
-            // Touch events for stylus/finger
-            canvas.addEventListener('touchstart', this.handleTouch.bind(this));
-            canvas.addEventListener('touchmove', this.handleTouch.bind(this));
-            canvas.addEventListener('touchend', this.stopDrawing.bind(this));
-            
-            // Pinch to zoom
-            canvas.addEventListener('gesturestart', this.handleGesture.bind(this));
-            canvas.addEventListener('gesturechange', this.handleGesture.bind(this));
-            
-            // Resize handle
-            const resizeHandle = canvas.parentElement.querySelector('.resize-handle');
-            resizeHandle.addEventListener('mousedown', (e) => this.startResize(e, canvas));
+        this.canvases.push({ canvas, ctx });
+        
+        // Visual feedback when canvas is active
+        canvas.addEventListener('mouseenter', () => {
+            canvas.parentElement.classList.add('active');
         });
         
-        // Color picker and eraser event listeners
-        document.querySelectorAll('.color-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                // Remove active class from siblings
-                e.target.parentElement.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                
-                this.currentColor = e.target.dataset.color;
-                this.isErasing = false;
-                
-                // Remove active from eraser
-                e.target.closest('.tools').querySelector('.eraser-btn').classList.remove('active');
-            });
+        canvas.addEventListener('mouseleave', () => {
+            if (!this.isDrawing) {
+                canvas.parentElement.classList.remove('active');
+            }
         });
         
-        document.querySelectorAll('.eraser-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.isErasing = !this.isErasing;
-                e.target.classList.toggle('active');
-                
-                // Remove active from color buttons
-                if (this.isErasing) {
-                    e.target.closest('.tools').querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
-                }
-            });
-        });
-    }
+        // Drawing event listeners
+        canvas.addEventListener('mousedown', this.startDrawing.bind(this));
+        canvas.addEventListener('mousemove', this.draw.bind(this));
+        canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
+        canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
+        
+        // Touch events for stylus/finger
+        canvas.addEventListener('touchstart', this.handleTouch.bind(this));
+        canvas.addEventListener('touchmove', this.handleTouch.bind(this));
+        canvas.addEventListener('touchend', this.stopDrawing.bind(this));
+        
+        // Pinch to zoom
+        canvas.addEventListener('gesturestart', this.handleGesture.bind(this));
+        canvas.addEventListener('gesturechange', this.handleGesture.bind(this));
+        
+        // Resize handle
+        const resizeHandle = canvas.parentElement.querySelector('.resize-handle');
+        resizeHandle.addEventListener('mousedown', (e) => this.startResize(e, canvas));
+    });
+}
 
     startDrawing(e) {
         this.isDrawing = true;
@@ -632,9 +657,15 @@ class QuizApp {
         this.lastY = currentY;
     }
 
-    stopDrawing() {
+stopDrawing() {
+    if (this.isDrawing) {
         this.isDrawing = false;
+        // Remove active state from all canvas containers
+        document.querySelectorAll('.canvas-container').forEach(container => {
+            container.classList.remove('active');
+        });
     }
+}
 
     handleTouch(e) {
         e.preventDefault();
