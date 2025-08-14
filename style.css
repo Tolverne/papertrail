@@ -262,7 +262,6 @@ body {
     background-clip: text;
 }
 
-
 .question-container {
     background: white;
     border-radius: 15px;
@@ -295,7 +294,7 @@ body {
 
 .canvas-area {
     display: flex;
-    gap: 20px;
+    justify-content: center;
     align-items: flex-start;
 }
 
@@ -305,6 +304,13 @@ body {
     border-radius: 8px;
     background: white;
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+    margin: 0 auto;
+}
+
+/* Add visual feedback for active canvas */
+.canvas-container.active {
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
 .drawing-canvas {
@@ -315,6 +321,10 @@ body {
     background-image:
         linear-gradient(to right, lightgrey 1px, transparent 1px),
         linear-gradient(to bottom, lightgrey 1px, transparent 1px);
+}
+
+.drawing-canvas.eraser-mode {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><rect x="2" y="8" width="16" height="8" rx="2" fill="%23ff6b6b" stroke="%23ffffff" stroke-width="1"/></svg>') 10 10, auto;
 }
 
 .resize-handle {
@@ -335,57 +345,9 @@ body {
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
 }
 
+/* Remove the old tools styling since we moved them to sidebar */
 .tools {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    padding: 20px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e9ecef;
-}
-
-.color-picker {
-    display: flex;
-    gap: 10px;
-}
-
-.color-btn {
-    width: 40px;
-    height: 40px;
-    border: 3px solid transparent;
-    border-radius: 50%;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.color-btn:hover {
-    transform: scale(1.1);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-}
-
-.color-btn.active {
-    border-color: #2c3e50;
-    transform: scale(1.1);
-}
-
-.eraser-btn {
-    background: linear-gradient(45deg, #ff6b6b, #ee5a24);
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 25px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    box-shadow: 0 3px 8px rgba(255, 107, 107, 0.3);
-}
-
-.eraser-btn:hover, .eraser-btn.active {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 12px rgba(255, 107, 107, 0.4);
+    display: none; /* Hide individual canvas tools */
 }
 
 .generate-pdf-btn {
@@ -415,8 +377,136 @@ body {
     color: #667eea;
     font-weight: 600;
 }
-/* Add these styles to your existing style.css */
-/* Add these styles to your existing style.css */
+
+/* Section Carousel Styles */
+.section-carousel {
+    background: white;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    position: relative;
+}
+
+.carousel-header {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+    position: relative;
+}
+
+.section-tabs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.section-tab {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.section-tab:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.section-tab.active {
+    background: white;
+    color: #667eea;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.carousel-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-left: 20px;
+}
+
+.carousel-btn {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.carousel-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.carousel-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.section-counter {
+    font-weight: 600;
+    font-size: 14px;
+    min-width: 60px;
+    text-align: center;
+}
+
+.carousel-body {
+    position: relative;
+    overflow: hidden;
+}
+
+.carousel-container {
+    display: flex;
+    transition: transform 0.4s ease-in-out;
+}
+
+.carousel-slide {
+    min-width: 100%;
+    padding: 30px;
+    box-sizing: border-box;
+}
+
+.section-title {
+    font-size: 2em;
+    color: #2c3e50;
+    margin-bottom: 30px;
+    text-align: center;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 700;
+}
+
+/* Keyboard navigation hint */
+.keyboard-hint {
+    position: absolute;
+    bottom: 10px;
+    right: 20px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    font-style: italic;
+}
 
 /* Sidebar Drawing Tools */
 .sidebar-tools {
@@ -502,6 +592,42 @@ body {
     background: linear-gradient(45deg, #ee5a24, #ff6b6b);
 }
 
+/* Storage Controls */
+.storage-controls {
+    margin: 15px 0 10px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.storage-btn {
+    width: 100%;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 15px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 11px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.storage-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(102, 126, 234, 0.4);
+}
+
+.storage-btn.danger {
+    background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+    box-shadow: 0 2px 4px rgba(255, 107, 107, 0.3);
+}
+
+.storage-btn.danger:hover {
+    box-shadow: 0 3px 6px rgba(255, 107, 107, 0.4);
+}
+
 .tool-info {
     text-align: center;
     color: #6c757d;
@@ -511,35 +637,6 @@ body {
 .tool-info small {
     font-size: 11px;
 }
-
-/* Update canvas area to remove individual tools */
-.canvas-area {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-}
-
-/* Remove the old tools styling since we moved them to sidebar */
-.tools {
-    display: none; /* Hide individual canvas tools */
-}
-
-/* Update canvas container for better centering */
-.canvas-container {
-    position: relative;
-    border: 2px solid #dee2e6;
-    border-radius: 8px;
-    background: white;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
-    margin: 0 auto;
-}
-
-/* Add visual feedback for active canvas */
-.canvas-container.active {
-    border-color: #667eea;
-    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.06);
-}
-
 
 /* Responsive Design */
 @media (max-width: 768px) {
@@ -560,16 +657,36 @@ body {
         margin: 10px;
     }
     
-    .canvas-area {
+    .carousel-header {
         flex-direction: column;
+        gap: 15px;
+        padding: 15px;
     }
     
-    .tools {
-        align-self: center;
+    .carousel-controls {
+        margin-left: 0;
     }
     
-    .color-picker {
+    .section-tabs {
         justify-content: center;
+        width: 100%;
+    }
+    
+    .section-tab {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+    
+    .carousel-slide {
+        padding: 20px 15px;
+    }
+    
+    .section-title {
+        font-size: 1.5em;
+    }
+    
+    .keyboard-hint {
+        display: none;
     }
 }
 
@@ -586,5 +703,15 @@ body {
     
     .file-sidebar.collapsed + .sidebar-toggle {
         left: 0;
+    }
+    
+    .section-tabs {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .section-tab {
+        width: 100%;
+        text-align: center;
     }
 }
