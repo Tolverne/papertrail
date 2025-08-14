@@ -15,7 +15,6 @@ class QuizApp {
     }
 
     async init() {
-        document.getElementById('fileInput').addEventListener('change', this.handleFileUpload.bind(this));
         document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
         
         // Initialize file tree
@@ -39,7 +38,6 @@ class QuizApp {
             });
         }
         
-        this.initializeRepoFileSelector();
     }
 
     // File tree functionality
@@ -378,54 +376,7 @@ class QuizApp {
         });
     }
 
-    // GitHub API functions - now as class methods
-    async getLatexFilesFromRepo() {
-        const apiUrl = 'https://api.github.com/repos/tolverne/papertrail/contents/latex-files';
-        try {
-            const response = await fetch(apiUrl);
-            if (!response.ok) {
-                console.error('Failed to fetch files:', response.status);
-                return [];
-            }
-            const files = await response.json();
-            return files.filter(file => file.name.endsWith('.tex'));
-        } catch (error) {
-            console.error('Error fetching file list:', error);
-            return [];
-        }
-    }
 
-    async loadLatexFileFromGitHub(file) {
-        document.getElementById('loading').style.display = 'block';
-        
-        try {
-            const response = await fetch(file.download_url);
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            
-            const content = await response.text();
-            this.fileName = file.name;
-            this.parseLatexFile(content);
-        } catch (error) {
-            console.error('Error loading file:', error);
-            document.getElementById('loading').style.display = 'none';
-            alert('Failed to load file from repository');
-        }
-    }
-
-    handleFileUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        this.fileName = file.name;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const content = e.target.result;
-            this.parseLatexFile(content);
-        };
-        reader.readAsText(file);
-
-        document.getElementById('loading').style.display = 'block';
-    }
 
     parseLatexFile(content) {
         const questions = [];
