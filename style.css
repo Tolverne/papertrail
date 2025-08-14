@@ -451,28 +451,6 @@ body {
     font-weight: 600;
 }
 
-/* Carousel Container */
-.carousel-container {
-    width: 100%;
-    overflow: hidden;
-    position: relative;
-}
-
-/* Navigation */
-.carousel-navigation {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px;
-    background-color: #f8f9fa;
-    border-bottom: 2px solid #dee2e6;
-    margin-bottom: 20px;
-}
-
-.carousel-btn {
-    padding: 10px 20px;
-    background-color:
-
 /* Responsive Design */
 @media (max-width: 768px) {
     .file-sidebar {
