@@ -40,74 +40,57 @@ window.MathJax = {
   
 </head>
 <body>
-  <div class="app-container">
-    <!-- File Browser Sidebar -->
-    <div id="fileSidebar" class="file-sidebar">
-      <div class="sidebar-header">
-        <h3>LaTeX Files</h3>
-        <button id="refreshTree" class="refresh-btn" title="Refresh file tree">🔄</button>
-      </div>
-      <div class="file-tree-container">
-        <!-- File tree will be rendered here -->
-      </div>
-      <div id="currentFileInfo" class="current-file-info" style="display: none;">
-        <!-- Current file info will be shown here -->
-      </div>
+  
+
+  <div class="container">
+    <div class="header">
+      <h1>Mathematics: Analysis and Approaches</h1>
     </div>
     
-    <!-- Sidebar Toggle Button -->
-    <button id="sidebarToggle" class="sidebar-toggle" title="Hide file browser">◀</button>
+
+    <div class="name-input-container" style="margin-bottom: 30px; text-align: center;">
+      <label for="studentName" style="font-size: 1.2em; font-weight: 600; color: #2c3e50;">
+        🧑 Your Name:
+      </label><br>
+      <input type="text" id="studentName" placeholder="Enter your name"
+             style="margin-top: 10px; padding: 10px 20px; font-size: 1em; border: 2px solid #dee2e6; border-radius: 10px; width: 60%; max-width: 400px;">
+    </div>
+
     
-    <!-- Main Content Area -->
-    <div id="mainContent" class="main-content">
-      <div class="container">
-        <div class="header">
-          <h1>Mathematics: Analysis and Approaches</h1>
-        </div>
-        
-        <div class="name-input-container" style="margin-bottom: 30px; text-align: center;">
-          <label for="studentName" style="font-size: 1.2em; font-weight: 600; color: #2c3e50;">
-            🧑 Your Name:
-          </label><br>
-          <input type="text" id="studentName" placeholder="Enter your name"
-                 style="margin-top: 10px; padding: 10px 20px; font-size: 1em; border: 2px solid #dee2e6; border-radius: 10px; width: 60%; max-width: 400px;">
-        </div>
+    <div class="file-input-container">
+      <input type="file" id="fileInput" class="file-input" accept=".tex,.txt">
+      <label for="fileInput" class="file-label">
+        📁 Choose Local LaTeX File
+      </label>
+      <p style="margin-top: 15px; color: #6c757d;">Select a .tex file containing your quiz questions</p>
+    </div>
 
-        <div class="file-input-container">
-          <input type="file" id="fileInput" class="file-input" accept=".tex,.txt">
-          <label for="fileInput" class="file-label">
-            📁 Choose Local LaTeX File
-          </label>
-          <p style="margin-top: 15px; color: #6c757d;">Select a .tex file containing your quiz questions</p>
-        </div>
+<div class="file-input-container">
+  <select id="repoFileSelect" class="file-input" style="display: none;">
+    <option value="">Loading files...</option>
+  </select>
+  <label for="repoFileSelect" class="file-label" id="repoFileLabel">
+    📚 Choose Repository LaTeX File
+  </label>
+  <p style="margin-top: 15px; color: #6c757d;">Select a .tex file from the repository</p>
+</div>
+    
+    <div class="loading" id="loading">
+      <p>🔄 Processing LaTeX file...</p>
+    </div>
 
-        <div class="file-input-container">
-          <select id="repoFileSelect" class="file-input" style="display: none;">
-            <option value="">Loading files...</option>
-          </select>
-          <label for="repoFileSelect" class="file-label" id="repoFileLabel">
-            📚 Choose Repository LaTeX File
-          </label>
-          <p style="margin-top: 15px; color: #6c757d;">Select a .tex file from the repository</p>
-        </div>
-        
-        <div class="loading" id="loading">
-          <p>🔄 Processing LaTeX file...</p>
-        </div>
+    
+    <div id="questionsContainer"></div>
 
-        <div id="questionsContainer"></div>
-
-        <button id="generatePdf" class="generate-pdf-btn" style="display: none;">
-          📄 Generate PDF
-        </button>
-        <div class="pdf-progress-container" style="display: none; margin: 20px 0; text-align: center;">
-          <p style="margin-bottom: 10px; color: #555;">Generating PDF, please wait...</p>
-          <progress id="pdfProgress" value="0" max="100" style="width: 80%; height: 20px;"></progress>
-        </div>
-      </div>
+    <button id="generatePdf" class="generate-pdf-btn" style="display: none;">
+      📄 Generate PDF
+    </button>
+    <div class="pdf-progress-container" style="display: none; margin: 20px 0; text-align: center;">
+      <p style="margin-bottom: 10px; color: #555;">Generating PDF, please wait...</p>
+      <progress id="pdfProgress" value="0" max="100" style="width: 80%; height: 20px;"></progress>
     </div>
   </div>
-
+  
 <!--   <div class="fixed-container">
   <div id="calculator" style="width: 600px; height: 400px;"></div>
   </div> -->
