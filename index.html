@@ -66,6 +66,15 @@ window.MathJax = {
           <div class="color-btn" style="background-color: #9900cc;" data-color="#9900cc" title="Purple"></div>
         </div>
         <button class="eraser-btn">🧽 Eraser</button>
+        
+        <!-- Storage Controls -->
+        <div class="storage-controls">
+          <button class="storage-btn" id="saveDrawings">💾 Save Drawings</button>
+          <button class="storage-btn" id="loadDrawings">📁 Load Drawings</button>
+          <input type="file" id="drawingFileInput" accept=".json" style="display: none;">
+          <button class="storage-btn danger" id="clearAllDrawings">🗑️ Clear All</button>
+        </div>
+        
         <div class="tool-info">
           <small>Click any canvas to start drawing</small>
         </div>
@@ -92,6 +101,28 @@ window.MathJax = {
         
         <div class="loading" id="loading">
           <p>🔄 Processing LaTeX file...</p>
+        </div>
+
+        <!-- Section Carousel -->
+        <div id="sectionCarousel" class="section-carousel" style="display: none;">
+          <div class="carousel-header">
+            <div class="section-tabs" id="sectionTabs">
+              <!-- Section tabs will be rendered here -->
+            </div>
+            <div class="carousel-controls">
+              <button id="prevSection" class="carousel-btn" title="Previous section">‹</button>
+              <span id="sectionCounter" class="section-counter">1 / 1</span>
+              <button id="nextSection" class="carousel-btn" title="Next section">›</button>
+            </div>
+          </div>
+          <div class="carousel-body">
+            <div class="carousel-container" id="carouselContainer">
+              <!-- Section slides will be rendered here -->
+            </div>
+          </div>
+          <div class="keyboard-hint">
+            Use ← → arrow keys to navigate sections
+          </div>
         </div>
 
         <div id="questionsContainer"></div>
