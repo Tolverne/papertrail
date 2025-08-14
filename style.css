@@ -415,7 +415,129 @@ body {
     color: #667eea;
     font-weight: 600;
 }
+/* Add these styles to your existing style.css */
 
+/* Sidebar Drawing Tools */
+.sidebar-tools {
+    padding: 15px;
+    background-color: #ffffff;
+    border-top: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-tools h4 {
+    margin: 0 0 15px 0;
+    color: #495057;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.sidebar-tools .color-picker {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 15px;
+    justify-items: center;
+}
+
+.sidebar-tools .color-btn {
+    width: 32px;
+    height: 32px;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.sidebar-tools .color-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-tools .color-btn.active {
+    border-color: #2c3e50;
+    transform: scale(1.1);
+}
+
+.sidebar-tools .color-btn.active::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+.sidebar-tools .eraser-btn {
+    width: 100%;
+    background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(255, 107, 107, 0.3);
+    margin-bottom: 10px;
+}
+
+.sidebar-tools .eraser-btn:hover, 
+.sidebar-tools .eraser-btn.active {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(255, 107, 107, 0.4);
+}
+
+.sidebar-tools .eraser-btn.active {
+    background: linear-gradient(45deg, #ee5a24, #ff6b6b);
+}
+
+.tool-info {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.tool-info small {
+    font-size: 11px;
+}
+
+/* Update canvas area to remove individual tools */
+.canvas-area {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+/* Remove the old tools styling since we moved them to sidebar */
+.tools {
+    display: none; /* Hide individual canvas tools */
+}
+
+/* Update canvas container for better centering */
+.canvas-container {
+    position: relative;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    background: white;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+    margin: 0 auto;
+}
+
+/* Add visual feedback for active canvas */
+.canvas-container.active {
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.06);
+}
 /* Responsive Design */
 @media (max-width: 768px) {
     .file-sidebar {
