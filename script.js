@@ -290,6 +290,8 @@ class QuizApp {
         const sectionRegex = /\\section\*?\{([^}]+)\}/g;
         const sectionMatches = [...content.matchAll(sectionRegex)];
         
+        console.log(`Found ${sectionMatches.length} sections`);
+        
         if (sectionMatches.length === 0) {
             // No sections found, treat entire content as one section
             return [];
@@ -302,10 +304,13 @@ class QuizApp {
             const sectionTitle = match[1];
             const sectionStart = match.index;
             
+            console.log(`Processing section ${index + 1}: "${sectionTitle}"`);
+            
             // Add content before first section as introduction if it exists
             if (index === 0 && sectionStart > 0) {
                 const introContent = content.substring(0, sectionStart);
                 const introQuestions = this.parseQuestionsFromContent(introContent);
+                console.log(`Introduction has ${introQuestions.length} questions`);
                 if (introQuestions.length > 0) {
                     sections.push({
                         title: 'Introduction',
@@ -324,6 +329,8 @@ class QuizApp {
             const sectionContent = content.substring(sectionStart, nextSectionStart);
             const questions = this.parseQuestionsFromContent(sectionContent);
             
+            console.log(`Section "${sectionTitle}" has ${questions.length} questions`);
+            
             sections.push({
                 title: sectionTitle,
                 questions: questions,
@@ -331,6 +338,7 @@ class QuizApp {
             });
         });
         
+        console.log(`Total sections created: ${sections.length}`);
         return sections;
     }
 
@@ -340,13 +348,16 @@ class QuizApp {
         // Extract questions using regex
         const questionsMatch = content.match(/\\begin{questions}(.*?)\\end{questions}/s);
         if (!questionsMatch) {
+            console.log('No questions block found in content');
             return questions; // No questions found in this content
         }
 
         const questionsContent = questionsMatch[1];
+        console.log('Found questions block, content length:', questionsContent.length);
         
         // Split by \question but keep the \question text
         const questionBlocks = questionsContent.split(/\\question\s+/).filter(block => block.trim());
+        console.log(`Found ${questionBlocks.length} question blocks`);
         
         questionBlocks.forEach((block, index) => {
             const question = { id: index + 1, text: '', parts: [] };
@@ -366,6 +377,7 @@ class QuizApp {
                         text: partText.trim()
                     });
                 });
+                console.log(`Question ${index + 1} has ${parts.length} parts`);
             } else {
                 // Question without parts
                 question.text = block.trim();
@@ -373,11 +385,13 @@ class QuizApp {
                     id: 1,
                     text: ''
                 });
+                console.log(`Question ${index + 1} has no parts (single question)`);
             }
             
             questions.push(question);
         });
 
+        console.log(`Parsed ${questions.length} questions from content`);
         return questions;
     }
 
@@ -393,8 +407,14 @@ class QuizApp {
         this.renderCarouselSlides();
         this.initializeCarouselControls();
         this.initializeSidebarTools(); // Initialize sidebar tools for carousel mode
+        
+        // Initialize canvases for the first section immediately
+        setTimeout(() => {
+            this.initializeCanvasesForSection(0);
+            this.renderMath(); // Render math after canvases are initialized
+        }, 100);
+        
         this.showSection(0); // Show first section
-        this.renderMath(); // Render math in all sections
         
         document.getElementById('generatePdf').style.display = 'block';
     }
@@ -432,7 +452,17 @@ class QuizApp {
 
     renderQuestionsForSection(questions, sectionIndex) {
         const sectionQuestionsContainer = document.querySelector(`[data-section="${sectionIndex}"]`);
+        if (!sectionQuestionsContainer) {
+            console.error(`Section container not found for section ${sectionIndex}`);
+            return;
+        }
+        
         sectionQuestionsContainer.innerHTML = '';
+
+        if (questions.length === 0) {
+            sectionQuestionsContainer.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 40px;">No questions found in this section.</p>';
+            return;
+        }
 
         questions.forEach((question) => {
             const questionDiv = document.createElement('div');
@@ -473,6 +503,8 @@ class QuizApp {
 
             sectionQuestionsContainer.appendChild(questionDiv);
         });
+        
+        console.log(`Rendered ${questions.length} questions for section ${sectionIndex}`);
     }
 
     initializeCarouselControls() {
@@ -517,7 +549,9 @@ class QuizApp {
         // Initialize canvases for this section if not already done
         setTimeout(() => {
             this.initializeCanvasesForSection(index);
-        }, 400); // Wait for transition
+            // Re-render math for the current section
+            this.renderMathForSection(index);
+        }, 500); // Wait for transition to complete
     }
 
     previousSection() {
@@ -777,6 +811,15 @@ class QuizApp {
     renderMath() {
         if (window.MathJax && window.MathJax.typesetPromise) {
             window.MathJax.typesetPromise().catch((err) => console.log(err.message));
+        }
+    }
+
+    renderMathForSection(sectionIndex) {
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            const sectionElement = document.querySelector(`[data-section="${sectionIndex}"]`);
+            if (sectionElement) {
+                window.MathJax.typesetPromise([sectionElement]).catch((err) => console.log(err.message));
+            }
         }
     }
 
