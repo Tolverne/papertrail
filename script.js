@@ -430,6 +430,7 @@ class QuizApp {
     }
 
     
+// Updated renderQuestions method - remove individual tools from canvas areas
 renderQuestions() {
     const container = document.getElementById('questionsContainer');
     container.innerHTML = '';
@@ -477,6 +478,10 @@ renderQuestions() {
 
 // New method to initialize sidebar tools
 initializeSidebarTools() {
+    // Initialize with default values
+    this.currentColor = '#000000';
+    this.isErasing = false;
+    
     // Color picker event listeners
     document.querySelectorAll('.sidebar-tools .color-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -488,39 +493,71 @@ initializeSidebarTools() {
             this.isErasing = false;
             
             // Remove active from eraser
-            document.querySelector('.sidebar-tools .eraser-btn').classList.remove('active');
+            const eraserBtn = document.querySelector('.sidebar-tools .eraser-btn');
+            if (eraserBtn) {
+                eraserBtn.classList.remove('active');
+            }
             
             // Visual feedback
             this.updateToolStatus();
+            this.updateCanvasCursors();
         });
     });
     
     // Eraser event listener
-    document.querySelector('.sidebar-tools .eraser-btn').addEventListener('click', (e) => {
-        this.isErasing = !this.isErasing;
-        e.target.classList.toggle('active');
-        
-        // Remove active from color buttons if erasing
-        if (this.isErasing) {
-            document.querySelectorAll('.sidebar-tools .color-btn').forEach(b => b.classList.remove('active'));
-        }
-        
-        // Visual feedback
-        this.updateToolStatus();
-    });
+    const eraserBtn = document.querySelector('.sidebar-tools .eraser-btn');
+    if (eraserBtn) {
+        eraserBtn.addEventListener('click', (e) => {
+            this.isErasing = !this.isErasing;
+            e.target.classList.toggle('active');
+            
+            // Remove active from color buttons if erasing
+            if (this.isErasing) {
+                document.querySelectorAll('.sidebar-tools .color-btn').forEach(b => b.classList.remove('active'));
+            } else {
+                // Restore the last selected color if turning off eraser
+                const blackBtn = document.querySelector('.sidebar-tools .color-btn[data-color="#000000"]');
+                if (blackBtn) {
+                    blackBtn.classList.add('active');
+                }
+            }
+            
+            // Visual feedback
+            this.updateToolStatus();
+            this.updateCanvasCursors();
+        });
+    }
+    
+    // Initialize tool status
+    this.updateToolStatus();
 }
 
 // New method to update tool status display
 updateToolStatus() {
     const toolInfo = document.querySelector('.tool-info small');
+    if (!toolInfo) return; // Safety check
+    
     if (this.isErasing) {
         toolInfo.textContent = 'Eraser mode active - Click canvas to erase';
         toolInfo.style.color = '#ee5a24';
     } else {
         toolInfo.textContent = 'Drawing mode active - Click canvas to draw';
-        toolInfo.style.color = this.currentColor;
+        toolInfo.style.color = this.currentColor || '#000000';
     }
 }
+
+// New method to update canvas cursors
+updateCanvasCursors() {
+    const canvases = document.querySelectorAll('.drawing-canvas');
+    canvases.forEach(canvas => {
+        if (this.isErasing) {
+            canvas.classList.add('eraser-mode');
+        } else {
+            canvas.classList.remove('eraser-mode');
+        }
+    });
+}
+
 
     processLatexText(text) {
         return text
@@ -578,7 +615,7 @@ updateToolStatus() {
         }
     }
 
-    initializeCanvases() {
+  initializeCanvases() {
     const canvases = document.querySelectorAll('.drawing-canvas');
     
     canvases.forEach((canvas) => {
